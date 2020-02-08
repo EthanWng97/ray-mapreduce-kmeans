@@ -1,29 +1,20 @@
-# View more python tutorial on my Youtube and Youku channel!!!
-
-# Youtube video tutorial: https://www.youtube.com/channel/UCdyjiB5H8Pu7aDTNVXTTpcg
-# Youku video tutorial: http://i.youku.com/pythontutorial
-
-"""
-Please note, this code is only for python 3+. If you are using python 2+, please modify the code accordingly.
-"""
-from __future__ import print_function
+from tensorflow.examples.tutorials.mnist import input_data
 import os
 import ray
 import time
-from tensorflow.examples.tutorials.mnist import input_data
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
 
-ray.init()
-# global prediction
+ray.init(num_gpus=8, include_webui=True)
+# consruct neural network
 
 
 def compute_accuracy(v_xs, v_ys):
     # global prediction
-    y_pre = sess.run(prediction, feed_dict={xs: v_xs, keep_prob: 1})
+    y_pre = nn.sess.run(prediction, feed_dict={xs: v_xs, keep_prob: 1})
     correct_prediction = tf.equal(tf.argmax(y_pre, 1), tf.argmax(v_ys, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-    result = sess.run(accuracy, feed_dict={xs: v_xs, ys: v_ys, keep_prob: 1})
+    result = nn.sess.run(accuracy, feed_dict={xs: v_xs, ys: v_ys, keep_prob: 1})
     return result
 
 
@@ -47,7 +38,9 @@ def max_pool_2x2(x):
     # stride [1, x_movement, y_movement, 1]
     return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
+
 def construct_network():
+
     # define placeholder for inputs to network
     xs = tf.placeholder(tf.float32, [None, 784])  # 28x28
     ys = tf.placeholder(tf.float32, [None, 10])
@@ -85,11 +78,11 @@ def construct_network():
     cross_entropy = tf.reduce_mean(-tf.reduce_sum(ys * tf.log(prediction),
                                                   reduction_indices=[1]))       # loss
     train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
-    return xs, ys, train_step, keep_prob
+    return xs, ys, train_step, keep_prob, prediction
 
-# define actor for structure
+
 @ray.remote(num_gpus=1)
-class NeuralNetOnGPU(object):
+class CNN_ON_RAY(object):
     def __init__(self, mnist_data):
         self.mnist = mnist_data
         # Set an environment variable to tell TensorFlow which GPUs to use. Note
@@ -98,7 +91,7 @@ class NeuralNetOnGPU(object):
             [str(i) for i in ray.get_gpu_ids()])
         with tf.Graph().as_default():
             with tf.device("/gpu:0"):
-                self.xs, self.ys, self.train_step, self.keep_prob = construct_network()
+                self.xs, self.ys, self.train_step, self.keep_prob, self.prediction = construct_network()
                 # Allow this to run on CPUs if there aren't any GPUs.
                 config = tf.ConfigProto(allow_soft_placement=True)
                 #### normal network
@@ -113,36 +106,35 @@ class NeuralNetOnGPU(object):
 
     def train(self, num_steps):
         for i in range(num_steps):
-            print(i)
+            # load dataset by batch
             batch_xs, batch_ys = self.mnist.train.next_batch(100)
+            # train
             self.sess.run(self.train_step, feed_dict={
-                        self.xs: batch_xs, self.ys: batch_ys, self.keep_prob: 0.5})
+                          self.xs: batch_xs, self.ys: batch_ys, self.keep_prob: 0.5})
+
             if i % 50 == 0:
-                print("test")
+                print(compute_accuracy(
+                    mnist.test.images[:1000], mnist.test.labels[:1000]))
 
+    # def compute_accuracy(self, v_xs, v_ys):
+    #     # global prediction
+    #     y_pre = self.sess.run(self.prediction, feed_dict={self.xs: v_xs, self.keep_prob: 1})
+    #     correct_prediction = tf.equal(tf.argmax(y_pre, 1), tf.argmax(v_ys, 1))
+    #     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    #     result = self.sess.run(accuracy, feed_dict={self.xs: v_xs, self.ys: v_ys, self.keep_prob: 1})
+    #     return result
 
-# number 1 to 10 data
-mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
-
-nn = NeuralNetOnGPU.remote(mnist)
+# load MNIST dataset，并告诉Ray如何序列化定制类。
+mnist = input_data.read_data_sets("MNIST_data", one_hot=True)
 start = time.time()
-nn.train.remote(1000)
+# Create the actor. 实例化actor并运行构造函数
+nn = CNN_ON_RAY.remote(mnist)
+
+# Run a few steps of training and print the accuracy.
+train_id = nn.train.remote(100)
+# result = nn.compute_accuracy.remote(mnist.test.images[:1000], mnist.test.labels[:1000])
+ray.get(train_id)
 end = time.time()
 print('execution time: ' + str(end-start) + 's')
-ray.shutdown()
 # accuracy = ray.get(nn.get_accuracy.remote())  # ray.get 从对象ID中进行数据的读取（python对象）
 # print("Accuracy is {}.".format(accuracy))
-# print(ray.get(nn.compute_accuracy.remote(mnist.test.images[:1000], mnist.test.labels[:1000])))
-# ray.get 从对象ID中进行数据的读取（python对象）
-# accuracy = ray.get(nn.compute_accuracy.remote(mnist.test.images[:1000], mnist.test.labels[:1000]))
-# print("Accuracy is {}.".format(accuracy))
-# start = time.time()
-# for i in range(1000):
-#     batch_xs, batch_ys = mnist.train.next_batch(100)
-#     sess.run(train_step, feed_dict={
-#              xs: batch_xs, ys: batch_ys, keep_prob: 0.5})
-#     if i % 50 == 0:
-#         print(compute_accuracy(
-#             mnist.test.images[:1000], mnist.test.labels[:1000]))
-# end = time.time()
-# print('execution time: ' + str(end-start) + 's')

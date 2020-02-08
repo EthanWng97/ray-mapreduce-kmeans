@@ -76,4 +76,3 @@ nn = NeuralNetOnGPU.remote(mnist)
 nn.train.remote(200)
 accuracy = ray.get(nn.get_accuracy.remote()) # ray.get 从对象ID中进行数据的读取（python对象）
 print("Accuracy is {}.".format(accuracy))
-ray.shutdown()
