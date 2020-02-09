@@ -8,36 +8,22 @@ tf.disable_v2_behavior()
 ray.init(num_gpus=8, include_webui=True)
 # consruct neural network
 
-
-def compute_accuracy(v_xs, v_ys):
-    # global prediction
-    y_pre = nn.sess.run(prediction, feed_dict={xs: v_xs, keep_prob: 1})
-    correct_prediction = tf.equal(tf.argmax(y_pre, 1), tf.argmax(v_ys, 1))
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-    result = nn.sess.run(accuracy, feed_dict={xs: v_xs, ys: v_ys, keep_prob: 1})
-    return result
-
-
 def weight_variable(shape):
     initial = tf.truncated_normal(shape, stddev=0.1)
     return tf.Variable(initial)
 
-
 def bias_variable(shape):
     initial = tf.constant(0.1, shape=shape)
     return tf.Variable(initial)
-
 
 def conv2d(x, W):
     # stride [1, x_movement, y_movement, 1]
     # Must have strides[0] = strides[3] = 1
     return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
 
-
 def max_pool_2x2(x):
     # stride [1, x_movement, y_movement, 1]
     return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-
 
 def construct_network():
 
@@ -78,8 +64,11 @@ def construct_network():
     cross_entropy = tf.reduce_mean(-tf.reduce_sum(ys * tf.log(prediction),
                                                   reduction_indices=[1]))       # loss
     train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
-    return xs, ys, train_step, keep_prob, prediction
+    
+    correct_prediction = tf.equal(tf.argmax(prediction, 1), tf.argmax(ys, 1))
+    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
+    return xs, ys, train_step, keep_prob, accuracy
 
 @ray.remote(num_gpus=1)
 class CNN_ON_RAY(object):
@@ -91,7 +80,7 @@ class CNN_ON_RAY(object):
             [str(i) for i in ray.get_gpu_ids()])
         with tf.Graph().as_default():
             with tf.device("/gpu:0"):
-                self.xs, self.ys, self.train_step, self.keep_prob, self.prediction = construct_network()
+                self.xs, self.ys, self.train_step, self.keep_prob, self.accuracy = construct_network()
                 # Allow this to run on CPUs if there aren't any GPUs.
                 config = tf.ConfigProto(allow_soft_placement=True)
                 #### normal network
@@ -113,16 +102,13 @@ class CNN_ON_RAY(object):
                           self.xs: batch_xs, self.ys: batch_ys, self.keep_prob: 0.5})
 
             if i % 50 == 0:
-                print(compute_accuracy(
-                    mnist.test.images[:1000], mnist.test.labels[:1000]))
+                # print(compute_accuracy(
+                #     mnist.test.images[:1000], mnist.test.labels[:1000]))
+                print(self.get_accuracy())
 
-    # def compute_accuracy(self, v_xs, v_ys):
-    #     # global prediction
-    #     y_pre = self.sess.run(self.prediction, feed_dict={self.xs: v_xs, self.keep_prob: 1})
-    #     correct_prediction = tf.equal(tf.argmax(y_pre, 1), tf.argmax(v_ys, 1))
-    #     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-    #     result = self.sess.run(accuracy, feed_dict={self.xs: v_xs, self.ys: v_ys, self.keep_prob: 1})
-    #     return result
+    def get_accuracy(self):
+        return self.sess.run(self.accuracy, feed_dict={
+            self.xs: mnist.test.images[:1000], self.ys: mnist.test.labels[:1000], self.keep_prob: 1})
 
 # load MNIST dataset，并告诉Ray如何序列化定制类。
 mnist = input_data.read_data_sets("MNIST_data", one_hot=True)
@@ -131,10 +117,7 @@ start = time.time()
 nn = CNN_ON_RAY.remote(mnist)
 
 # Run a few steps of training and print the accuracy.
-train_id = nn.train.remote(100)
-# result = nn.compute_accuracy.remote(mnist.test.images[:1000], mnist.test.labels[:1000])
+train_id = nn.train.remote(1000)
 ray.get(train_id)
 end = time.time()
 print('execution time: ' + str(end-start) + 's')
-# accuracy = ray.get(nn.get_accuracy.remote())  # ray.get 从对象ID中进行数据的读取（python对象）
-# print("Accuracy is {}.".format(accuracy))
