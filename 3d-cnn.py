@@ -3,13 +3,13 @@
 # For example, here's several helpful packages to load in
 
 from __future__ import division, print_function, absolute_import
+from mpl_toolkits.mplot3d import Axes3D  # for 3d plotting
+import matplotlib.pyplot as plt
+from keras.utils import to_categorical
 import numpy as np  # linear algebra
 import h5py
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
-from keras.utils import to_categorical
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  # for 3d plotting
 
 # Hyper Parameter
 batch_size = 86
