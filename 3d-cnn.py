@@ -1,28 +1,19 @@
-from __future__ import division, print_function, absolute_import
-from sklearn.metrics import confusion_matrix, accuracy_score
+# This Python 3 environment comes with many helpful analytics libraries installed
+# It is defined by the kaggle/python docker image: https://github.com/kaggle/docker-python
+# For example, here's several helpful packages to load in
 
-from keras.models import Sequential, model_from_json
-from keras.layers import Dense, Dropout, Flatten, Conv3D, MaxPool3D, BatchNormalization, Input
-from keras.optimizers import RMSprop
-from keras.preprocessing.image import ImageDataGenerator
-from keras.utils.np_utils import to_categorical
-from keras.callbacks import ReduceLROnPlateau, TensorBoard
+from __future__ import division, print_function, absolute_import
+import numpy as np  # linear algebra
+import h5py
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
-import h5py
-import pandas as pd
-import numpy as np
+from keras.utils import to_categorical
 import matplotlib.pyplot as plt
-import seaborn as sns
-sns.set_style('white')
-
+from mpl_toolkits.mplot3d import Axes3D  # for 3d plotting
 
 # Hyper Parameter
 batch_size = 86
 epochs = 20
-
-# Set up TensorBoard
-tensorboard = TensorBoard(batch_size=batch_size)
 
 with h5py.File("/Users/wangyifan/Google Drive/3dmnist/full_dataset_vectors.h5", 'r') as h5:
     X_train, y_train = h5["X_train"][:], h5["y_train"][:]
@@ -40,8 +31,6 @@ def translate(x):
     xx = np.ndarray((x.shape[0], 4096, 3))
     for i in range(x.shape[0]):
         xx[i] = array_to_color(x[i])
-        if i % 1000 == 0:
-            print(i)
     # Free Memory
     del x
 
@@ -49,7 +38,7 @@ def translate(x):
 
 
 y_train = to_categorical(y_train, num_classes=10)
-# y_test = to_categorical(y_test, num_classes=10)
+y_test = to_categorical(y_test, num_classes=10)
 
 X_train = translate(X_train).reshape(-1, 16, 16, 16, 3)
 X_test = translate(X_test).reshape(-1, 16, 16, 16, 3)
@@ -57,103 +46,105 @@ X_test = translate(X_test).reshape(-1, 16, 16, 16, 3)
 # Conv3D layer
 
 
-def Conv(filters=16, kernel_size=(3, 3, 3), activation='relu', input_shape=None):
-    if input_shape:
-        return Conv3D(filters=filters, kernel_size=kernel_size, padding='Same', activation=activation, input_shape=input_shape)
-    else:
-        return Conv3D(filters=filters, kernel_size=kernel_size, padding='Same', activation=activation)
-
-# Define Model
+with tf.name_scope('inputs'):
+    x_input = tf.placeholder(tf.float32, shape=[None, 16, 16, 16, 3])
+    y_input = tf.placeholder(tf.float32, shape=[None, 10])
 
 
-def CNN(input_dim, num_classes):
-    model = Sequential()
+def construct_network(x_train_data, keep_rate=0.7, seed=None):
 
-    model.add(Conv(8, (3, 3, 3), input_shape=input_dim))
-    model.add(Conv(16, (3, 3, 3)))
-    # model.add(BatchNormalization())
-    model.add(MaxPool3D())
-    # model.add(Dropout(0.25))
+    with tf.name_scope("layer_a"):
+        # conv => 16*16*16 feature: 16
+        conv1 = tf.layers.conv3d(inputs=x_train_data, filters=16, kernel_size=[
+                                 3, 3, 3], padding='same', activation=tf.nn.relu)
+        # conv => 16*16*16 feature: 32
+        conv2 = tf.layers.conv3d(inputs=conv1, filters=32, kernel_size=[
+                                 3, 3, 3], padding='same', activation=tf.nn.relu)
+        # pool => 8*8*8
+        pool3 = tf.layers.max_pooling3d(
+            inputs=conv2, pool_size=[2, 2, 2], strides=2)
 
-    model.add(Conv(32, (3, 3, 3)))
-    model.add(Conv(64, (3, 3, 3)))
-    model.add(BatchNormalization())
-    model.add(MaxPool3D())
-    model.add(Dropout(0.25))
+    with tf.name_scope("layer_c"):
+        # conv => 8*8*8 feature: 64
+        conv4 = tf.layers.conv3d(inputs=pool3, filters=64, kernel_size=[
+                                 3, 3, 3], padding='same', activation=tf.nn.relu)
+        # conv => 8*8*8 feature: 128
+        conv5 = tf.layers.conv3d(inputs=conv4, filters=128, kernel_size=[
+                                 3, 3, 3], padding='same', activation=tf.nn.relu)
+        # pool => 4*4*4
+        pool6 = tf.layers.max_pooling3d(
+            inputs=conv5, pool_size=[2, 2, 2], strides=2)
 
-    model.add(Flatten())
+    with tf.name_scope("batch_norm"):
+        cnn3d_bn = tf.layers.batch_normalization(inputs=pool6, training=True)
 
-    model.add(Dense(4096, activation='relu'))
-    model.add(Dropout(0.5))
+    with tf.name_scope("fully_con"):
+        flattening = tf.reshape(cnn3d_bn, [-1, 4*4*4*128])
+        dense = tf.layers.dense(
+            inputs=flattening, units=1024, activation=tf.nn.relu)
+        # (1-keep_rate) is the probability that the node will be kept
+        dropout = tf.layers.dropout(
+            inputs=dense, rate=keep_rate, training=True)
 
-    model.add(Dense(1024, activation='relu'))
-    model.add(Dropout(0.5))
+    with tf.name_scope("y_conv"):
+        y_conv = tf.layers.dense(inputs=dropout, units=10)
 
-    model.add(Dense(num_classes, activation='softmax'))
-
-    return model
-
-# Train Model
-
-
-def train(optimizer, scheduler):
-    global model
-
-    print("Training...")
-    model.compile(optimizer='adam',
-                  loss="categorical_crossentropy", metrics=["accuracy"])
-
-    model.fit(x=X_train, y=y_train, batch_size=batch_size, epochs=epochs, validation_split=0.15,
-              verbose=2, callbacks=[scheduler, tensorboard])
-
-
-def evaluate():
-    global model
-
-    pred = model.predict(X_test)
-    pred = np.argmax(pred, axis=1)
-
-    print(accuracy_score(pred, y_test))
-    # Heat Map
-    array = confusion_matrix(y_test, pred)
-    cm = pd.DataFrame(array, index=range(10), columns=range(10))
-    plt.figure(figsize=(20, 20))
-    sns.heatmap(cm, annot=True)
-    plt.show()
+    return y_conv
 
 
-def save_model():
-    global model
+def train_neural_network(x_train_data, y_train_data, x_test_data, y_test_data, learning_rate=0.05, keep_rate=0.7, epochs=10, batch_size=128):
 
-    model_json = model.to_json()
-    with open('model/model_3D.json', 'w') as f:
-        f.write(model_json)
+    with tf.name_scope("cross_entropy"):
+        prediction = construct_network(x_input, keep_rate, seed=1)
+        cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+            logits=prediction, labels=y_input))
 
-    model.save_weights('model/model_3D.h5')
+    with tf.name_scope("training"):
+        optimizer = tf.train.AdamOptimizer(learning_rate).minimize(cost)
 
-    print('Model Saved.')
+    correct = tf.equal(tf.argmax(prediction, 1), tf.argmax(y_input, 1))
+    accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
+
+    iterations = int(len(x_train_data)/batch_size) + 1
+
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        import datetime
+
+        start_time = datetime.datetime.now()
+
+        iterations = int(len(x_train_data)/batch_size) + 1
+        # run epochs
+        for epoch in range(epochs):
+            start_time_epoch = datetime.datetime.now()
+            print('Epoch', epoch, 'started', end='')
+            epoch_loss = 0
+            # mini batch
+            for itr in range(iterations):
+                mini_batch_x = x_train_data[itr*batch_size: (itr+1)*batch_size]
+                mini_batch_y = y_train_data[itr*batch_size: (itr+1)*batch_size]
+                _optimizer, _cost = sess.run([optimizer, cost], feed_dict={
+                                             x_input: mini_batch_x, y_input: mini_batch_y})
+                epoch_loss += _cost
+
+            #  using mini batch in case not enough memory
+            acc = 0
+            itrs = int(len(x_test_data)/batch_size) + 1
+            for itr in range(itrs):
+                mini_batch_x_test = x_test_data[itr *
+                                                batch_size: (itr+1)*batch_size]
+                mini_batch_y_test = y_test_data[itr *
+                                                batch_size: (itr+1)*batch_size]
+                acc += sess.run(accuracy, feed_dict={
+                                x_input: mini_batch_x_test, y_input: mini_batch_y_test})
+
+            end_time_epoch = datetime.datetime.now()
+            print(' Testing Set Accuracy:', acc/itrs, ' Time elapse: ',
+                  str(end_time_epoch - start_time_epoch))
+
+        end_time = datetime.datetime.now()
+        print('Time elapse: ', str(end_time - start_time))
 
 
-def load_model():
-    f = open('model/model_3D.json', 'r')
-    model_json = f.read()
-    f.close()
-
-    loaded_model = model_from_json(model_json)
-    loaded_model.load_weights('model/model_3D.h5')
-
-    print("Model Loaded.")
-    return loaded_model
-
-
-if __name__ == '__main__':
-
-    optimizer = RMSprop(lr=0.001, rho=0.9, epsilon=1e-08, decay=0.0)
-    scheduler = ReduceLROnPlateau(
-        monitor='val_acc', patience=3, verbose=1, factor=0.5, min_lr=1e-5)
-
-    model = CNN((16, 16, 16, 3), 10)
-
-    train(optimizer, scheduler)
-    evaluate()
-    save_model()
+train_neural_network(X_train[:100], y_train[:100], X_test[:100],
+                     y_test[:100], epochs=10, batch_size=32, learning_rate=0.0001)
