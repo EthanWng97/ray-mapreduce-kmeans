@@ -7,8 +7,8 @@
 - [x] Learn the 3D photo classification and use Ray again to modify the network structure.
 ## To do list
 - [ ] Use workers instead of one worker to train the data. (Learn the data transmission between workers)
-- [ ] Change the data structure of 3D photo into Tensor and Use advanced tensor processing algorithms to classify the multi-media data.
-    > A Tucker Deep Computation Model for Mobile Multimedia Feature Learning
+- [ ] ~~Change the data structure of 3D photo into Tensor and Use advanced tensor processing algorithms to classify the multi-media data.~~
+    > ~~A Tucker Deep Computation Model for Mobile Multimedia Feature Learning~~
 - [ ] Use Ray to enhance the above network (network structure and run by many workers)
 
 ## My Blog
