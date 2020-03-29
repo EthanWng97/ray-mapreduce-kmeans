@@ -43,15 +43,11 @@ class DataProcessor:
     def data_filter(self, df):
         print("filtering data...")
         df = df[(df['lon'] > DataProcessor.lon_min) & (df['lon'] < DataProcessor.lon_max) &
-                (df['lat'] > DataProcessor.lat_min) & (df['lat'] < DataProcessor.lat_max)]
+                (df['lat'] > DataProcessor.lat_min) & (df['lat'] < DataProcessor.lat_max)].reset_index(drop=True)
         return df
 
 
     def _get_map(self, x, y, z, size, filename):
-        #static_map = "http://staticmap.openstreetmap.de/staticmap.php?center={0},{1}&zoom={2}&size={3}x{3}&maptype=mapnik".format(y,x,z,size)
-
-        # static_map = "https://maps.googleapis.com/maps/api/staticmap?center=Stockholm&zoom={2}&size={3}x{3}&markers=color:red%7Clabel:C%7C{0},{1}&maptype=roadmap&key=AIzaSyB0LOUHwF7jrKQT3R3rcqzSdeB4ARResuc".format(
-        #     x, y, z, size)
         static_map = DataProcessor.static_map.format(x, y, z, size)
         static_map_filename, headers = urllib.request.urlretrieve(
             static_map, filename)
