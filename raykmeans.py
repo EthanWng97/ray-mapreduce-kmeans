@@ -6,10 +6,7 @@ def data_split(df, seed=None, num=2):
     perm = np.random.permutation(df.index)
     m = len(df.index)
     data_1_end = int((1/num) * m)
-    # validate_end = int(validate_percent * m) + train_end
-    # print(perm[:data_1_end])
     data_1 = df.iloc[perm[:data_1_end]]
-    # validate = df.ix[perm[train_end:validate_end]]
     data_2 = df.iloc[perm[data_1_end:]]
     return (data_1, data_2)
 
@@ -27,10 +24,6 @@ def randCent(data_X, k):
 
 @ray.remote
 def calEDist(arrA, arrB):
-    """
-    功能：欧拉距离距离计算
-    输入：两个一维数组
-    """
     return np.math.sqrt(sum(np.power(arrA-arrB, 2)))
 
 @ray.remote
@@ -76,6 +69,7 @@ class KMeansMapper(object):
                     minIndex = j
             if self._clusterAssment[i, 0] != minIndex or self._clusterAssment[i, 1] > minDist**2:
                 self._clusterAssment[i, :] = int(minIndex), minDist**2
+
 
 @ray.remote
 class KMeansReducer(object):

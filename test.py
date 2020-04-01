@@ -22,10 +22,10 @@ from ray.util.joblib import register_ray
 from scipy.spatial import Voronoi
 
 
-
+# data process
 dataprocessor = DataProcessor(
     '/Users/wangyifan/Google Drive/checkin', 'loc-gowalla_totalCheckins.txt')
-
+cluster_k = 20
 df = dataprocessor.load_date()
 df = dataprocessor.data_filter(df)
 df = dataprocessor.data_process(df)
@@ -33,31 +33,38 @@ df = dataprocessor.data_process(df)
 df = df[:30000]
 df_kmeans = df.copy()
 df_kmeans = df_kmeans[['lat', 'lon']]
+
+# split data
 items = data_split(df_kmeans)
-center = randCent(df_kmeans, 20)
+
+# init center
+center = randCent(df_kmeans, cluster_k)
 print(center)
+
+# init ray
 ray.init()
-mappers = [KMeansMapper.remote(item.values, 20) for item in items]
-reducers = [KMeansReducer.remote(i, *mappers) for i in range(20)]
+mappers = [KMeansMapper.remote(item.values, cluster_k) for item in items]
+reducers = [KMeansReducer.remote(i, *mappers) for i in range(cluster_k)]
+
+# broadcast center point
 mappers[0].broadcast.remote(center)
 mappers[1].broadcast.remote(center)
 
-start = time.time()
+# first iteration
+# map function
 mappers[0].assign_cluster.remote()
 mappers[1].assign_cluster.remote()
-# print(center)
+
+# reduce function
 for reducer in reducers:
     print(ray.get(reducer.update_cluster.remote()))
 
 
-# i = 0
-# for reducer in reducers:
-#     if i ==23:
-#         print(ray.get(reducer.update_cluster.remote()))
-#     i += 1
 
+# start = time.time()
 # end = time.time()
 # print('execution time: ' + str(end-start) + 's')
+
 
 
 # ml = KMeans(n_clusters=100,  init='k-means++', verbose=10, n_jobs=-1)
