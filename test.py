@@ -29,24 +29,35 @@ dataprocessor = DataProcessor(
 df = dataprocessor.load_date()
 df = dataprocessor.data_filter(df)
 df = dataprocessor.data_process(df)
+# df = df.sample(n=2000, replace=False).reset_index(drop=True)
+df = df[:30000]
 df_kmeans = df.copy()
 df_kmeans = df_kmeans[['lat', 'lon']]
 items = data_split(df_kmeans)
-center = randCent(df_kmeans, 100)
-
+center = randCent(df_kmeans, 20)
+print(center)
 ray.init()
-mappers = [KMeansMapper.remote(item.values, 100) for item in items]
-
+mappers = [KMeansMapper.remote(item.values, 20) for item in items]
+reducers = [KMeansReducer.remote(i, *mappers) for i in range(20)]
 mappers[0].broadcast.remote(center)
 mappers[1].broadcast.remote(center)
 
 start = time.time()
 mappers[0].assign_cluster.remote()
 mappers[1].assign_cluster.remote()
-print(ray.get(mappers[0].read_item.remote()))
-print(ray.get(mappers[1].read_item.remote()))
-end = time.time()
-print('execution time: ' + str(end-start) + 's')
+# print(center)
+for reducer in reducers:
+    print(ray.get(reducer.update_cluster.remote()))
+
+
+# i = 0
+# for reducer in reducers:
+#     if i ==23:
+#         print(ray.get(reducer.update_cluster.remote()))
+#     i += 1
+
+# end = time.time()
+# print('execution time: ' + str(end-start) + 's')
 
 
 # ml = KMeans(n_clusters=100,  init='k-means++', verbose=10, n_jobs=-1)

@@ -2,12 +2,12 @@ import numpy as np
 import ray
 
 def data_split(df, seed=None, num=2):
-    np.random.seed(seed)
+    np.random.seed(43)
     perm = np.random.permutation(df.index)
     m = len(df.index)
     data_1_end = int((1/num) * m)
     # validate_end = int(validate_percent * m) + train_end
-    print(perm[:data_1_end])
+    # print(perm[:data_1_end])
     data_1 = df.iloc[perm[:data_1_end]]
     # validate = df.ix[perm[train_end:validate_end]]
     data_2 = df.iloc[perm[data_1_end:]]
@@ -20,7 +20,7 @@ def randCent(data_X, k):
     for j in range(n):
         minJ = min(data_X.iloc[:, j])
         rangeJ = float(max(data_X.iloc[:, j] - minJ))
-        #使用flatten拉平嵌套列表(nested list)
+
         centroids[:, j] = (minJ + rangeJ * np.random.rand(k, 1)).flatten()
     return centroids
 
@@ -49,8 +49,11 @@ class KMeansMapper(object):
     def _calEDist(self, arrA, arrB):
         return np.math.sqrt(sum(np.power(arrA-arrB, 2)))
 
-    def read_item(self):
+    def read_cluster(self):
         return self._clusterAssment
+
+    def read_item(self):
+        return self.item
 
     def assign_cluster(self):
         m = self.item.shape[0]  # number of sample
@@ -73,4 +76,40 @@ class KMeansMapper(object):
                     minIndex = j
             if self._clusterAssment[i, 0] != minIndex or self._clusterAssment[i, 1] > minDist**2:
                 self._clusterAssment[i, :] = int(minIndex), minDist**2
+
+@ray.remote
+class KMeansReducer(object):
+    def __init__(self, value, *kmeansmappers):
+        self._value = value
+        self.kmeansmappers = kmeansmappers
+        self.centroids = None # recalculated center point
+        self._clusterAssment = None
+        self._clusterOutput = np.array([[0., 0.]])
+
+    def read(self):
+        return self._value
+    
+    def update_cluster(self):
+        for mapper in self.kmeansmappers:
+            self._clusterAssment = ray.get(mapper.read_cluster.remote())
+            # get index number of each sample
+            index_all = self._clusterAssment[:, 0]  
+            
+            # filter the sample according to the reducer number
+            value = np.nonzero(index_all == self._value)
+
+            # ray.get(mapper.read_item.remote)
+            # get the info of sample according to the reducer number
+            ptsInClust = ray.get(mapper.read_item.remote())[
+                value[0]]
+            
+            # accumulate the result
+            # self._clusterOutput = np.append(self._clusterOutput, ptsInClust)
+            self._clusterOutput = np.insert(
+                self._clusterOutput, 0, ptsInClust, axis=0)
+        
+        self._clusterOutput = np.delete(self._clusterOutput, -1, axis=0)
+        # calculate the mean of all samples
+        self._centroids = np.mean(self._clusterOutput, axis=0)
+        return (self._centroids, self._value)
 
