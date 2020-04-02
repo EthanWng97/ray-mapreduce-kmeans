@@ -35,7 +35,7 @@ df = df[:30000]
 cluster_k = 20
 epsilon = 1e-4
 precision = 1e-6
-
+iteration = 1
 df_kmeans = df.copy()
 df_kmeans = df_kmeans[['lat', 'lon']]
 
@@ -51,20 +51,33 @@ ray.init()
 mappers = [KMeansMapper.remote(item.values, cluster_k) for item in items]
 reducers = [KMeansReducer.remote(i, *mappers) for i in range(cluster_k)]
 start = time.time()
-# broadcast center point
-mappers[0].broadcast.remote(center)
-mappers[1].broadcast.remote(center)
 
-# first iteration
-# map function
-mappers[0].assign_cluster.remote()
-mappers[1].assign_cluster.remote()
+for i in range(iteration):
+    # broadcast center point
+    mappers[0].broadcast.remote(center)
+    mappers[1].broadcast.remote(center)
 
-# for mapper in mappers:
-#     print(ray.get(mapper.read_cluster.remote()))
-# reduce function
-for reducer in reducers:
-    print(ray.get(reducer.update_cluster.remote()))
+    # first iteration
+    # map function
+    mappers[0].assign_cluster.remote()
+    mappers[1].assign_cluster.remote()
+
+    # for mapper in mappers:
+    #     print(ray.get(mapper.read_cluster.remote()))
+    # reduce function
+    for reducer in reducers:
+        print(ray.get(reducer.update_cluster.remote()))
+
+    # newCenter = ray.get(reducer.update_cluster.remote())
+    # print(newCenter)
+    # print(center)
+    # changed = ifUpdateCluster(newCenter, center)
+    # if (not changed):
+    #     break
+    # else:
+    #     center = newCenter
+
+# print(center)
 end = time.time()
 print('execution time: ' + str(end-start) + 's')
 # start = time.time()

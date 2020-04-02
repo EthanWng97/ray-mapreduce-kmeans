@@ -1,5 +1,6 @@
 import numpy as np
 import ray
+import sys
 
 def data_split(df, seed=None, num=2):
     np.random.seed(43)
@@ -25,8 +26,11 @@ def randCent(data_X, k):
 def calEDist(arrA, arrB):
     return np.math.sqrt(sum(np.power(arrA-arrB, 2)))
 
+def CalculateNorm(point):
+    return np.linalg.norm(point)
 
-def fastSquaredDistance(center, center_norm, point, point_norm, EPSILON, precision):
+
+def fastSquaredDistance(center, center_norm, point, point_norm, EPSILON=1e-4, precision=1e-6):
     n = center.size
     sumSquaredNorm = np.square(center_norm) + np.square(point_norm)
     normDiff = center_norm - point_norm
@@ -39,6 +43,17 @@ def fastSquaredDistance(center, center_norm, point, point_norm, EPSILON, precisi
         sqDist = calEDist(center, point)
     return sqDist
 
+
+def ifUpdateCluster(newCenter, oldCenter, epsilon=1e-4):
+    changed = False
+    if (newCenter.shape[0] != oldCenter.shape[0]):
+        print("run failed: no matched dimension about newCenter and oldCenter list!")
+        sys.exit(2)
+    n = newCenter.shape[0]
+    for i in range(n):
+        if (fastSquaredDistance(newCenter, CalculateNorm(newCenter), oldCenter, CalculateNorm(oldCenter))) > np.square(epsilon):
+            changed = True
+    return True
 
 def findClosest(k, centroids, item, i, EPSILON, precision):
     bestDistance = np.inf
@@ -153,5 +168,5 @@ class KMeansReducer(object):
         self._clusterOutput = np.delete(self._clusterOutput, -1, axis=0)
         # calculate the mean of all samples
         self._centroids = np.mean(self._clusterOutput, axis=0)
-        return (self._centroids, self._value)
-
+        # return (self._centroids, self._value)
+        return self._centroids
