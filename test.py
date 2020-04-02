@@ -13,13 +13,8 @@ import urllib
 import urllib.request
 import wget
 import ray
-from sklearn.cluster import KMeans
-from sklearn import metrics
-from sklearn.metrics import pairwise_distances
-import joblib
-from ray.util.joblib import register_ray
-
 from scipy.spatial import Voronoi
+from numpy import array
 
 
 # data process
@@ -39,6 +34,9 @@ iteration = 10
 df_kmeans = df.copy()
 df_kmeans = df_kmeans[['lat', 'lon']]
 
+"""
+RAY + MAPREDUCE METHOD
+"""
 # split data
 items = data_split(df_kmeans)
 
@@ -82,18 +80,80 @@ for i in range(iteration):
 # print(center)
 end = time.time()
 print('execution time: ' + str(end-start) + 's, cost: '+ str(cost))
-# start = time.time()
-# end = time.time()
-# print('execution time: ' + str(end-start) + 's')
 
 
 
-# ml = KMeans(n_clusters=100,  init='k-means++', verbose=10, n_jobs=-1)
-# # ml.fit(df_kmeans[['lat', 'lon']].sample(frac=0.3))
+"""
+SKLEARN METHOD
+"""
+# from sklearn.cluster import KMeans
+# from sklearn import metrics
+# from sklearn.metrics import pairwise_distances
+# import joblib
+# from ray.util.joblib import register_ray
+
+# ml = KMeans(n_clusters=20,  init='random', verbose=10,
+#             n_jobs=1, max_iter=10, algorithm='full')
+# ml.fit(df_kmeans)
 # ray.init(use_pickle=True)
 # register_ray()
 # with joblib.parallel_backend('ray'):
 #     ml.fit(df_kmeans[['lat', 'lon']].sample(frac=0.3))
+
+
+
+"""
+SPARK METHOD
+"""
+
+# from pyspark import SparkContext
+# from pyspark.sql import SQLContext
+# from pyspark.sql import SparkSession
+# from pyspark.mllib.clustering import KMeans, KMeansModel
+
+# def loadDataset(df):
+#     # df = pd.read_csv(infile, sep='\t', header=0, dtype=str, na_filter=False)
+#     return np.array(df).astype(np.float)
+
+# sc = SparkContext(appName="KmeansExample")
+# spark = SparkSession.builder.appName('Recommendation_system').getOrCreate()
+# # data_X = loadDataset(df_kmeans[['lat', 'lon']])
+# data_X = spark.createDataFrame(df_kmeans[['lat', 'lon']])
+
+# clusters = KMeans.train(
+#     data_X.rdd, k=20, maxIterations=10, initializationMode="random")
+# print(clusters.clusterCenters)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # print(df_kmeans.shape)
 # cluster = ml.cluster_centers_

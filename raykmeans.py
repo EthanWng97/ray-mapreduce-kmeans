@@ -132,7 +132,7 @@ class KMeansMapper(object):
             method 2: classicial calculation method
             """
 
-            # for each k, calculate the nearest distance
+            for each k, calculate the nearest distance
             for j in range(self._k):
                 arrA = self.centroids[j, :]
                 arrB = self.item[i, :]
