@@ -22,19 +22,57 @@ def randCent(data_X, k):
     return centroids
 
 
-@ray.remote
 def calEDist(arrA, arrB):
     return np.math.sqrt(sum(np.power(arrA-arrB, 2)))
+
+
+def fastSquaredDistance(center, center_norm, point, point_norm, EPSILON, precision):
+    n = center.size
+    sumSquaredNorm = np.square(center_norm) + np.square(point_norm)
+    normDiff = center_norm - point_norm
+    sqDist = 0.0
+    precisionBound1 = 2.0 * EPSILON * \
+        sumSquaredNorm / (np.square(normDiff) + EPSILON)
+    if (precisionBound1 < precision):
+        sqDist = sumSquaredNorm - 2.0 * np.dot(center, point)
+    else:
+        sqDist = calEDist(center, point)
+    return sqDist
+
+
+def findClosest(k, centroids, item, i, EPSILON, precision):
+    bestDistance = np.inf
+    bestIndex = -1
+    j = 0
+    # for each k(k centers)
+    for j in range(k):
+        center = centroids[j, :]
+        point = item[i, :]
+        center_norm = np.linalg.norm(center)
+        point_norm = np.linalg.norm(point)
+        lowerBoundOfSqDist = center_norm - point_norm
+        lowerBoundOfSqDist = np.square(lowerBoundOfSqDist)
+        if (lowerBoundOfSqDist < bestDistance):
+            distance = fastSquaredDistance(
+                center, center_norm, point, point_norm, EPSILON, precision)  # 计算欧氏距离
+        if (distance < bestDistance):  # 如果距离小于最优值，那么更新最优值
+            bestDistance = distance
+            bestIndex = j
+    return bestIndex, bestDistance
+
+
 
 @ray.remote
 class KMeansMapper(object):
     centroids = 0
 
-    def __init__(self, item, k=1):
+    def __init__(self, item, k=1, epsilon=1e-4, precision = 1e-6):
         self.item = item
         self._k = k
         self._clusterAssment = None
         self.centroids = None
+        self._epsilon = epsilon
+        self._precision = precision
 
     def broadcast(self, centroids):
         self.centroids = centroids
@@ -56,17 +94,27 @@ class KMeansMapper(object):
             minDist = np.inf
             minIndex = -1
 
+            """
+            method 1: optimize findclosest center
+            """
+            # minIndex, minDist = findClosest(
+            #     self._k, self.centroids, self.item, i, self._epsilon, self._precision)
+
+            """
+            method 2: classicial calculation method
+            """
+
             # for each k, calculate the nearest distance
             for j in range(self._k):
                 arrA = self.centroids[j, :]
                 arrB = self.item[i, :]
-                # print(np.math.sqrt(sum(np.power(arrA-arrB, 2))))
-                # distJI = self._calEDist(arrA, arrB)
-                # distJI = ray.get(calEDist.remote(arrA, arrB))
-                distJI = np.math.sqrt(sum(np.power(arrA-arrB, 2)))
+                distJI = calEDist(arrA, arrB)
+                # distJI = np.math.sqrt(sum(np.power(arrA-arrB, 2)))
                 if distJI < minDist:
                     minDist = distJI
                     minIndex = j
+
+            # output: minIndex, minDist
             if self._clusterAssment[i, 0] != minIndex or self._clusterAssment[i, 1] > minDist**2:
                 self._clusterAssment[i, :] = int(minIndex), minDist**2
 

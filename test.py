@@ -25,12 +25,14 @@ from scipy.spatial import Voronoi
 # data process
 dataprocessor = DataProcessor(
     '/Users/wangyifan/Google Drive/checkin', 'loc-gowalla_totalCheckins.txt')
-cluster_k = 20
+
 df = dataprocessor.load_date()
 df = dataprocessor.data_filter(df)
 df = dataprocessor.data_process(df)
 # df = df.sample(n=2000, replace=False).reset_index(drop=True)
+# config: data 30000 cluster_k: 20
 df = df[:30000]
+cluster_k = 20
 df_kmeans = df.copy()
 df_kmeans = df_kmeans[['lat', 'lon']]
 
@@ -45,7 +47,7 @@ print(center)
 ray.init()
 mappers = [KMeansMapper.remote(item.values, cluster_k) for item in items]
 reducers = [KMeansReducer.remote(i, *mappers) for i in range(cluster_k)]
-
+start = time.time()
 # broadcast center point
 mappers[0].broadcast.remote(center)
 mappers[1].broadcast.remote(center)
@@ -55,12 +57,13 @@ mappers[1].broadcast.remote(center)
 mappers[0].assign_cluster.remote()
 mappers[1].assign_cluster.remote()
 
+# for mapper in mappers:
+#     print(ray.get(mapper.read_cluster.remote()))
 # reduce function
 for reducer in reducers:
     print(ray.get(reducer.update_cluster.remote()))
-
-
-
+end = time.time()
+print('execution time: ' + str(end-start) + 's')
 # start = time.time()
 # end = time.time()
 # print('execution time: ' + str(end-start) + 's')
