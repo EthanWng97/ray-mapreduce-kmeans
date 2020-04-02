@@ -31,11 +31,11 @@ df = dataprocessor.data_filter(df)
 df = dataprocessor.data_process(df)
 # df = df.sample(n=2000, replace=False).reset_index(drop=True)
 # config: data 30000 cluster_k: 20
-df = df[:30000]
+df = df[:300000]
 cluster_k = 20
 epsilon = 1e-4
 precision = 1e-6
-iteration = 2
+iteration = 10
 df_kmeans = df.copy()
 df_kmeans = df_kmeans[['lat', 'lon']]
 
@@ -68,20 +68,20 @@ for i in range(iteration):
     # for reducer in reducers:
     #     print(ray.get(reducer.update_cluster.remote()))
     newCenter = CreateNewCluster(reducers)
-    print(newCenter)
+    # print(newCenter)
     # newCenter = ray.get(reducer.update_cluster.remote())
     # print(newCenter)
     # print(center)
-    changed = ifUpdateCluster(newCenter, center)
+    changed, cost = ifUpdateCluster(newCenter, center)
     if (not changed):
         break
     else:
         center = newCenter
-        print(str(i) + " iteration")
+        print(str(i) + " iteration, cost: "+ str(cost))
 
 # print(center)
 end = time.time()
-print('execution time: ' + str(end-start) + 's')
+print('execution time: ' + str(end-start) + 's, cost: '+ str(cost))
 # start = time.time()
 # end = time.time()
 # print('execution time: ' + str(end-start) + 's')

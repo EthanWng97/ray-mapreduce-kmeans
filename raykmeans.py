@@ -71,10 +71,14 @@ def ifUpdateCluster(newCenter, oldCenter, epsilon=1e-4):
         print("run failed: no matched dimension about newCenter and oldCenter list!")
         sys.exit(2)
     n = newCenter.shape[0]
+    cost = 0
     for i in range(n):
-        if (fastSquaredDistance(newCenter[i], CalculateNorm(newCenter[i]), oldCenter[i], CalculateNorm(oldCenter[i]))) > np.square(epsilon):
+        diff = fastSquaredDistance(newCenter[i], CalculateNorm(
+            newCenter[i]), oldCenter[i], CalculateNorm(oldCenter[i]))
+        if diff > np.square(epsilon):
             changed = True
-    return True
+        cost += diff
+    return changed, cost
 
 def CreateNewCluster(reducers):
     new_cluster = np.array([[0., 0.]])
@@ -140,7 +144,7 @@ class KMeansMapper(object):
 
             # output: minIndex, minDist
             if self._clusterAssment[i, 0] != minIndex or self._clusterAssment[i, 1] > minDist**2:
-                self._clusterAssment[i, :] = int(minIndex), minDist**2
+                self._clusterAssment[i, :] = int(minIndex), minDist
 
 
 @ray.remote
