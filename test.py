@@ -35,7 +35,7 @@ df = df[:30000]
 cluster_k = 20
 epsilon = 1e-4
 precision = 1e-6
-iteration = 1
+iteration = 2
 df_kmeans = df.copy()
 df_kmeans = df_kmeans[['lat', 'lon']]
 
@@ -65,17 +65,19 @@ for i in range(iteration):
     # for mapper in mappers:
     #     print(ray.get(mapper.read_cluster.remote()))
     # reduce function
-    for reducer in reducers:
-        print(ray.get(reducer.update_cluster.remote()))
-
+    # for reducer in reducers:
+    #     print(ray.get(reducer.update_cluster.remote()))
+    newCenter = CreateNewCluster(reducers)
+    print(newCenter)
     # newCenter = ray.get(reducer.update_cluster.remote())
     # print(newCenter)
     # print(center)
-    # changed = ifUpdateCluster(newCenter, center)
-    # if (not changed):
-    #     break
-    # else:
-    #     center = newCenter
+    changed = ifUpdateCluster(newCenter, center)
+    if (not changed):
+        break
+    else:
+        center = newCenter
+        print(str(i) + " iteration")
 
 # print(center)
 end = time.time()

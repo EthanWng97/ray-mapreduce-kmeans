@@ -44,17 +44,6 @@ def fastSquaredDistance(center, center_norm, point, point_norm, EPSILON=1e-4, pr
     return sqDist
 
 
-def ifUpdateCluster(newCenter, oldCenter, epsilon=1e-4):
-    changed = False
-    if (newCenter.shape[0] != oldCenter.shape[0]):
-        print("run failed: no matched dimension about newCenter and oldCenter list!")
-        sys.exit(2)
-    n = newCenter.shape[0]
-    for i in range(n):
-        if (fastSquaredDistance(newCenter, CalculateNorm(newCenter), oldCenter, CalculateNorm(oldCenter))) > np.square(epsilon):
-            changed = True
-    return True
-
 def findClosest(k, centroids, item, i, EPSILON, precision):
     bestDistance = np.inf
     bestIndex = -1
@@ -74,6 +63,26 @@ def findClosest(k, centroids, item, i, EPSILON, precision):
             bestDistance = distance
             bestIndex = j
     return bestIndex, bestDistance
+
+
+def ifUpdateCluster(newCenter, oldCenter, epsilon=1e-4):
+    changed = False
+    if (newCenter.shape[0] != oldCenter.shape[0]):
+        print("run failed: no matched dimension about newCenter and oldCenter list!")
+        sys.exit(2)
+    n = newCenter.shape[0]
+    for i in range(n):
+        if (fastSquaredDistance(newCenter[i], CalculateNorm(newCenter[i]), oldCenter[i], CalculateNorm(oldCenter[i]))) > np.square(epsilon):
+            changed = True
+    return True
+
+def CreateNewCluster(reducers):
+    new_cluster = np.array([[0., 0.]])
+    for reducer in reducers:
+        tmp = ray.get(reducer.update_cluster.remote())
+        new_cluster = np.insert(
+            new_cluster, 0, tmp, axis=0)
+    return np.delete(new_cluster, -1, axis=0)
 
 
 
