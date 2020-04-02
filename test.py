@@ -33,6 +33,9 @@ df = dataprocessor.data_process(df)
 # config: data 30000 cluster_k: 20
 df = df[:30000]
 cluster_k = 20
+epsilon = 1e-4
+precision = 1e-6
+
 df_kmeans = df.copy()
 df_kmeans = df_kmeans[['lat', 'lon']]
 
