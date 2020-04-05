@@ -2,14 +2,22 @@ import numpy as np
 import ray
 import sys
 
-def data_split(df, seed=None, num=2):
-    np.random.seed(43)
+def data_split(df, seed=None, num=3):
+    np.random.seed(seed)
     perm = np.random.permutation(df.index)
     m = len(df.index)
-    data_1_end = int((1/num) * m)
-    data_1 = df.iloc[perm[:data_1_end]]
-    data_2 = df.iloc[perm[data_1_end:]]
-    return (data_1, data_2)
+    data_end = np.zeros(shape=(1, num-1), dtype=np.int)
+    for i in range(num-1):
+        data_end[0][i] = int(((i+1)/num)*m)
+    data = np.zeros(shape=(1, num), dtype=object)
+    for i in range(num):
+        if (i == 0):
+            data[0][i] = df.iloc[perm[:data_end[0][0]]]
+        elif (i == num-1):
+            data[0][i] = df.iloc[perm[data_end[0][i-1]:]]
+        else:
+            data[0][i] = df.iloc[perm[data_end[0][i-1]:data_end[0][i]]]
+    return tuple(data)
 
 
 def randCent(data_X, k):
@@ -59,9 +67,9 @@ def findClosest(k, centroids, item, i, EPSILON, precision):
         if (lowerBoundOfSqDist < bestDistance):
             distance = fastSquaredDistance(
                 center, center_norm, point, point_norm, EPSILON, precision)  # 计算欧氏距离
-        if (distance < bestDistance):  # 如果距离小于最优值，那么更新最优值
-            bestDistance = distance
-            bestIndex = j
+            if (distance < bestDistance):  # 如果距离小于最优值，那么更新最优值
+                bestDistance = distance
+                bestIndex = j
     return bestIndex, bestDistance
 
 

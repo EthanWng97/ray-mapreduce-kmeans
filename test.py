@@ -26,7 +26,7 @@ df = dataprocessor.data_filter(df)
 df = dataprocessor.data_process(df)
 # df = df.sample(n=2000, replace=False).reset_index(drop=True)
 # config: data 30000 cluster_k: 20
-df = df[:300000]
+df = df[:30000]
 cluster_k = 20
 epsilon = 1e-4
 precision = 1e-6
@@ -38,7 +38,7 @@ df_kmeans = df_kmeans[['lat', 'lon']]
 RAY + MAPREDUCE METHOD
 """
 # split data
-items = data_split(df_kmeans)
+items = data_split(df_kmeans,num=10)
 
 # init center
 center = randCent(df_kmeans, cluster_k)
@@ -46,19 +46,19 @@ print(center)
 
 # init ray
 ray.init()
-mappers = [KMeansMapper.remote(item.values, cluster_k) for item in items]
+mappers = [KMeansMapper.remote(item.values, cluster_k) for item in items[0]]
 reducers = [KMeansReducer.remote(i, *mappers) for i in range(cluster_k)]
 start = time.time()
 
 for i in range(iteration):
     # broadcast center point
-    mappers[0].broadcast.remote(center)
-    mappers[1].broadcast.remote(center)
+    for mapper in mappers:
+        mapper.broadcast.remote(center)
 
     # first iteration
     # map function
-    mappers[0].assign_cluster.remote()
-    mappers[1].assign_cluster.remote()
+    for mapper in mappers:
+        mapper.assign_cluster.remote()
 
     # for mapper in mappers:
     #     print(ray.get(mapper.read_cluster.remote()))
@@ -79,6 +79,7 @@ for i in range(iteration):
 
 # print(center)
 end = time.time()
+print(center)
 print('execution time: ' + str(end-start) + 's, cost: '+ str(cost))
 
 
@@ -91,10 +92,14 @@ SKLEARN METHOD
 # from sklearn.metrics import pairwise_distances
 # import joblib
 # from ray.util.joblib import register_ray
+# start = time.time()
 
-# ml = KMeans(n_clusters=20,  init='random', verbose=10,
+# ml = KMeans(n_clusters=cluster_k,  init='random', verbose=1,
 #             n_jobs=1, max_iter=10, algorithm='full')
 # ml.fit(df_kmeans)
+
+# end = time.time()
+# print('execution time: ' + str(end-start) + 's')
 # ray.init(use_pickle=True)
 # register_ray()
 # with joblib.parallel_backend('ray'):
