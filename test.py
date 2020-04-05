@@ -161,7 +161,7 @@ SPARK METHOD
 
 
 # print(df_kmeans.shape)
-# cluster = ml.cluster_centers_
+# cluster = center
 # cluster[:10]
 # #points = np.array([[c[1], c[0]] for c in clusters])
 # points = cluster
@@ -170,7 +170,7 @@ SPARK METHOD
 # vor = Voronoi(points)
 
 # # compute regions
-# regions, vertices = voronoi_polygons_2d(vor)
+# regions, vertices = dataprocessor.voronoi_polygons_2d(vor)
 
 # # prepare figure
 # plt.style.use('seaborn-white')
