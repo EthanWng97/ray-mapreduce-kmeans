@@ -61,8 +61,8 @@ start = time.time()
 for i in range(iteration):
     # broadcast center point
     for mapper in mappers:
-        mapper.broadcast.remote(center)
-        mapper.updateDistMatrix.remote(distMatrix)
+        mapper.broadcastCentroid.remote(center)
+        mapper.broadcastDistMatrix.remote(distMatrix)
     # print(distMatrix)
     # map function
     for mapper in mappers:

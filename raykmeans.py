@@ -113,10 +113,10 @@ class KMeansMapper(object):
         self._precision = precision
         self._distMatrix = None
 
-    def broadcast(self, centroids):
+    def broadcastCentroid(self, centroids):
         self.centroids = centroids
 
-    def updateDistMatrix(self, distMatrix):
+    def broadcastDistMatrix(self, distMatrix):
         self._distMatrix = distMatrix
 
     def _calEDist(self, arrA, arrB):
