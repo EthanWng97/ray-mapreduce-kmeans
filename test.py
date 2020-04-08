@@ -16,6 +16,7 @@ import ray
 from scipy.spatial import Voronoi
 from numpy import array
 import _k_means_elkan
+import _k_means_fast
 
 
 # data process
@@ -27,7 +28,7 @@ df = dataprocessor.data_filter(df)
 df = dataprocessor.data_process(df)
 # df = df.sample(n=2000, replace=False).reset_index(drop=True)
 # config: data 30000 cluster_k: 20
-df = df[:300000]
+df = df[:30000]
 batch_num = 10
 cluster_k = 20
 epsilon = 1e-4
@@ -44,7 +45,9 @@ items = data_split(df_kmeans, num=batch_num)
 
 # init center
 center = randCent(df_kmeans, cluster_k)
-distMatrix = _k_means_elkan.createDistMatrix(center)
+n = center.shape[0]  # n center points
+distMatrix = np.empty(shape=(n, n))
+_k_means_fast.createDistMatrix(center, distMatrix)
 print(center)
 # print(distMatrix)
 
@@ -81,7 +84,8 @@ for i in range(iteration):
         break
     else:
         center = newCenter
-        distMatrix = _k_means_elkan.createDistMatrix(center)
+        _k_means_fast.createDistMatrix(center, distMatrix)
+        # distMatrix = _k_means_fast.createDistMatrix(center)
         print(str(i) + " iteration, cost: "+ str(cost))
 
 # print(center)

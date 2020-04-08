@@ -2,6 +2,7 @@ import numpy as np
 import ray
 import sys
 import _k_means_elkan
+import _k_means_fast
 
 def data_split(df, seed=None, num=3):
     np.random.seed(seed)
