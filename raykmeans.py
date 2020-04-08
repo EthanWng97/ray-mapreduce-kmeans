@@ -160,10 +160,13 @@ class KMeansMapper(object):
             method 3: elkan method
             """
             
-            minIndex, minDist = _k_means_elkan.findClosest(
-                self._k, self.centroids, self.item, i, self._distMatrix)
+            # minIndex, minDist = _k_means_elkan.findClosest(
+            #     self._k, self.centroids, self.item, i, self._distMatrix)
 
-
+            _k_means_fast.findClosest(
+                self._k, self.centroids, self.item, i, self._distMatrix, minIndex, minDist)
+            print(minIndex)
+            print(minDist)
             # print(minIndex, minDist)
             # output: minIndex, minDist
             if self._clusterAssment[i, 0] != minIndex or self._clusterAssment[i, 1] > minDist**2:
@@ -201,8 +204,13 @@ class KMeansReducer(object):
             self._clusterOutput = np.insert(
                 self._clusterOutput, 0, ptsInClust, axis=0)
         
-        self._clusterOutput = np.delete(self._clusterOutput, -1, axis=0)
-        # calculate the mean of all samples
-        self._centroids = np.mean(self._clusterOutput, axis=0)
-        # return (self._centroids, self._value)
-        return self._centroids
+        try:
+            self._clusterOutput = np.delete(self._clusterOutput, -1, axis=0)
+        except IndexError:
+            print("run failed: incorrect mapper data!")
+            sys.exit(2)
+        else:
+            # calculate the mean of all samples
+            self._centroids = np.mean(self._clusterOutput, axis=0)
+            # return (self._centroids, self._value)
+            return self._centroids
