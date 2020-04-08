@@ -15,6 +15,7 @@ import wget
 import ray
 from scipy.spatial import Voronoi
 from numpy import array
+import _k_means_elkan
 
 
 # data process
@@ -26,7 +27,8 @@ df = dataprocessor.data_filter(df)
 df = dataprocessor.data_process(df)
 # df = df.sample(n=2000, replace=False).reset_index(drop=True)
 # config: data 30000 cluster_k: 20
-df = df[:30000]
+df = df[:300000]
+batch_num = 10
 cluster_k = 20
 epsilon = 1e-4
 precision = 1e-6
@@ -38,15 +40,18 @@ df_kmeans = df_kmeans[['lat', 'lon']]
 RAY + MAPREDUCE METHOD
 """
 # split data
-items = data_split(df_kmeans,num=10)
+items = data_split(df_kmeans, num=batch_num)
 
 # init center
 center = randCent(df_kmeans, cluster_k)
+distMatrix = _k_means_elkan.createDistMatrix(center)
 print(center)
+# print(distMatrix)
 
 # init ray
 ray.init()
-mappers = [KMeansMapper.remote(item.values, cluster_k) for item in items[0]]
+mappers = [KMeansMapper.remote(
+    item.values, k=cluster_k) for item in items[0]]
 reducers = [KMeansReducer.remote(i, *mappers) for i in range(cluster_k)]
 start = time.time()
 
@@ -54,12 +59,13 @@ for i in range(iteration):
     # broadcast center point
     for mapper in mappers:
         mapper.broadcast.remote(center)
-
-    # first iteration
+        mapper.updateDistMatrix.remote(distMatrix)
+    # print(distMatrix)
     # map function
     for mapper in mappers:
         mapper.assign_cluster.remote()
 
+    # print(ray.get(mappers[0].read_cluster.remote()))
     # for mapper in mappers:
     #     print(ray.get(mapper.read_cluster.remote()))
     # reduce function
@@ -75,6 +81,7 @@ for i in range(iteration):
         break
     else:
         center = newCenter
+        distMatrix = _k_means_elkan.createDistMatrix(center)
         print(str(i) + " iteration, cost: "+ str(cost))
 
 # print(center)
@@ -128,16 +135,6 @@ SPARK METHOD
 # clusters = KMeans.train(
 #     data_X.rdd, k=20, maxIterations=10, initializationMode="random")
 # print(clusters.clusterCenters)
-
-
-
-
-
-
-
-
-
-
 
 
 

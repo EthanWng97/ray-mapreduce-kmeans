@@ -1,6 +1,7 @@
 import numpy as np
 import ray
 import sys
+import _k_means_elkan
 
 def data_split(df, seed=None, num=3):
     np.random.seed(seed)
@@ -102,16 +103,20 @@ def CreateNewCluster(reducers):
 class KMeansMapper(object):
     centroids = 0
 
-    def __init__(self, item, k=1, epsilon=1e-4, precision = 1e-6):
+    def __init__(self, item, k=1, epsilon=1e-4, precision=1e-6):
         self.item = item
         self._k = k
         self._clusterAssment = None
         self.centroids = None
         self._epsilon = epsilon
         self._precision = precision
+        self._distMatrix = None
 
     def broadcast(self, centroids):
         self.centroids = centroids
+
+    def updateDistMatrix(self, distMatrix):
+        self._distMatrix = distMatrix
 
     def _calEDist(self, arrA, arrB):
         return np.math.sqrt(sum(np.power(arrA-arrB, 2)))
@@ -141,15 +146,24 @@ class KMeansMapper(object):
             """
 
             # for each k, calculate the nearest distance
-            for j in range(self._k):
-                arrA = self.centroids[j, :]
-                arrB = self.item[i, :]
-                distJI = calEDist(arrA, arrB)
-                # distJI = np.math.sqrt(sum(np.power(arrA-arrB, 2)))
-                if distJI < minDist:
-                    minDist = distJI
-                    minIndex = j
+            # for j in range(self._k):
+            #     arrA = self.centroids[j, :]
+            #     arrB = self.item[i, :]
+            #     distJI = calEDist(arrA, arrB)
+            #     # distJI = np.math.sqrt(sum(np.power(arrA-arrB, 2)))
+            #     if distJI < minDist:
+            #         minDist = distJI
+            #         minIndex = j
+                    
+            """
+            method 3: elkan method
+            """
+            
+            minIndex, minDist = _k_means_elkan.findClosest(
+                self._k, self.centroids, self.item, i, self._distMatrix)
 
+
+            # print(minIndex, minDist)
             # output: minIndex, minDist
             if self._clusterAssment[i, 0] != minIndex or self._clusterAssment[i, 1] > minDist**2:
                 self._clusterAssment[i, :] = int(minIndex), minDist
