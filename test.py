@@ -1,6 +1,6 @@
 import time
 from dataprocessor import DataProcessor
-from raykmeans import *
+import raykmeans
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
@@ -41,21 +41,21 @@ df_kmeans = df_kmeans[['lat', 'lon']]
 RAY + MAPREDUCE METHOD
 """
 # split data
-items = data_split(df_kmeans, num=batch_num)
+items = raykmeans.data_split(df_kmeans, num=batch_num)
 
 # init center
-center = randCent(df_kmeans, cluster_k)
+center = raykmeans._k_init(df_kmeans, cluster_k, method="k-means++")
+print(center)
 n = center.shape[0]  # n center points
 distMatrix = np.empty(shape=(n, n))
 _k_means_fast.createDistMatrix(center, distMatrix)
-print(center)
-# print(distMatrix)
 
 # init ray
 ray.init()
-mappers = [KMeansMapper.remote(
+mappers = [raykmeans.KMeansMapper.remote(
     item.values, k=cluster_k) for item in items[0]]
-reducers = [KMeansReducer.remote(i, *mappers) for i in range(cluster_k)]
+reducers = [raykmeans.KMeansReducer.remote(
+    i, *mappers) for i in range(cluster_k)]
 start = time.time()
 
 for i in range(iteration):
@@ -74,12 +74,12 @@ for i in range(iteration):
     # reduce function
     # for reducer in reducers:
     #     print(ray.get(reducer.update_cluster.remote()))
-    newCenter = CreateNewCluster(reducers)
+    newCenter = raykmeans.CreateNewCluster(reducers)
     # print(newCenter)
     # newCenter = ray.get(reducer.update_cluster.remote())
     # print(newCenter)
     # print(center)
-    changed, cost = ifUpdateCluster(newCenter, center)
+    changed, cost = raykmeans.ifUpdateCluster(newCenter, center)
     if (not changed):
         break
     else:

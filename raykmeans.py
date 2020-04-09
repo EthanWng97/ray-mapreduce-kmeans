@@ -4,6 +4,53 @@ import sys
 import _k_means_elkan
 import _k_means_fast
 
+
+def _k_init(data_X, n_clusters, method="k-means++"):
+    n = data_X.shape[1]  # dimension of feature
+    centroids = np.empty((n_clusters, n))  # matrix of center point
+    if(method=="k-means++"):
+        print("trying k-means++ method to initialize k clusters")
+        data = data_X.copy()
+        center_1 = np.random.randint(0, data.shape[0])
+        centroids[0] = data.loc[center_1]
+
+        for i in range(1, n_clusters):
+            index_row = 0
+            index = 0
+            maxDist = 0
+            # calaulate proper point
+            for row in data.values:
+                # calculate shortest distance (D(x)) for each point
+                minDistJ = np.inf
+                for j in range(i):
+                    distJ = calEDist(row, centroids[j])
+
+                    if distJ < minDistJ:
+                        minDistJ = distJ
+                if minDistJ > maxDist:
+                    maxDist = minDistJ
+                    index = index_row
+
+                #operate index and maxDist
+                index_row += 1
+            centroids[i] = data.loc[index]
+    
+    elif(method=="random"):
+        print("trying random method to initialize k clusters")
+
+        for k in range(n):
+            minK = min(data_X.iloc[:, k])
+            rangeK = float(max(data_X.iloc[:, k] - minK))
+
+            centroids[:, k] = (
+                minK + rangeK * np.random.rand(n_clusters, 1)).flatten()
+    else:
+        print("run failed: wrong method of initializing k clusters")
+        sys.exit(2)
+    return centroids
+
+
+
 def data_split(df, seed=None, num=3):
     np.random.seed(seed)
     perm = np.random.permutation(df.index)
@@ -21,17 +68,16 @@ def data_split(df, seed=None, num=3):
             data[0][i] = df.iloc[perm[data_end[0][i-1]:data_end[0][i]]]
     return tuple(data)
 
+# def randCent(data_X, n_clusters):
+#     n = data_X.shape[1]  # dimension of feature
+#     centroids = np.empty((n_clusters, n))  # matrix of center point
+#     for j in range(n):
+#         minJ = min(data_X.iloc[:, j])
+#         rangeJ = float(max(data_X.iloc[:, j] - minJ))
 
-def randCent(data_X, k):
-    n = data_X.shape[1]  # dimension of feature
-    centroids = np.empty((k, n))  # matrix of center point
-    for j in range(n):
-        minJ = min(data_X.iloc[:, j])
-        rangeJ = float(max(data_X.iloc[:, j] - minJ))
-
-        centroids[:, j] = (minJ + rangeJ * np.random.rand(k, 1)).flatten()
-    return centroids
-
+#         centroids[:, j] = (
+#             minJ + rangeJ * np.random.rand(n_clusters, 1)).flatten()
+#     return centroids
 
 def calEDist(arrA, arrB):
     return np.math.sqrt(sum(np.power(arrA-arrB, 2)))
@@ -159,15 +205,9 @@ class KMeansMapper(object):
             """
             method 3: elkan method
             """
-            
-            # minIndex, minDist = _k_means_elkan.findClosest(
-            #     self._k, self.centroids, self.item, i, self._distMatrix)
+            minIndex, minDist = _k_means_elkan.findClosest(
+                self._k, self.centroids, self.item, i, self._distMatrix)
 
-            _k_means_fast.findClosest(
-                self._k, self.centroids, self.item, i, self._distMatrix, minIndex, minDist)
-            print(minIndex)
-            print(minDist)
-            # print(minIndex, minDist)
             # output: minIndex, minDist
             if self._clusterAssment[i, 0] != minIndex or self._clusterAssment[i, 1] > minDist**2:
                 self._clusterAssment[i, :] = int(minIndex), minDist
