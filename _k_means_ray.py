@@ -149,7 +149,7 @@ class KMeansMapper(object):
     def read_item(self):
         return self.item
 
-    def assign_cluster(self):
+    def assign_cluster(self, method="elkan"):
         m = self.item.shape[0]  # number of sample
         self._clusterAssment = np.zeros((m, 2))
         # assign nearest center point to the sample
@@ -157,31 +157,34 @@ class KMeansMapper(object):
             minDist = np.inf
             minIndex = -1
 
-            """
-            method 1: optimize findclosest center
-            """
-            # minIndex, minDist = _k_means_spark.findClosest(
-            #     self._k, self.centroids, self.item, i, self._epsilon, self._precision)
-
-            """
-            method 2: classic calculation method
-            """
-
-            # for each k, calculate the nearest distance
-            # for j in range(self._k):
-            #     arrA = self.centroids[j, :]
-            #     arrB = self.item[i, :]
-            #     distJI = calEDist(arrA, arrB)
-            #     # distJI = np.math.sqrt(sum(np.power(arrA-arrB, 2)))
-            #     if distJI < minDist:
-            #         minDist = distJI
-            #         minIndex = j
-                    
-            """
-            method 3: elkan method
-            """
-            minIndex, minDist = _k_means_elkan.findClosest(
-                self._k, self.centroids, self.item, i, self._distMatrix)
+            if(method == "spark"):
+                """
+                method 1: optimize findclosest center
+                """
+                minIndex, minDist = _k_means_spark.findClosest(
+                    self._k, self.centroids, self.item, i, self._epsilon, self._precision)
+            elif(method == "full"):
+                """
+                method 2: classic calculation method
+                """
+                # for each k, calculate the nearest distance
+                for j in range(self._k):
+                    arrA = self.centroids[j, :]
+                    arrB = self.item[i, :]
+                    distJI = calEDist(arrA, arrB)
+                    # distJI = np.math.sqrt(sum(np.power(arrA-arrB, 2)))
+                    if distJI < minDist:
+                        minDist = distJI
+                        minIndex = j
+            elif(method == "elkan"):
+                """
+                method 3: elkan method
+                """
+                minIndex, minDist = _k_means_elkan.findClosest(
+                    self._k, self.centroids, self.item, i, self._distMatrix)
+            else:
+                print("run failed: wrong algorithm for assigning point")
+                sys.exit(2)
 
             # output: minIndex, minDist
             if self._clusterAssment[i, 0] != minIndex or self._clusterAssment[i, 1] > minDist**2:
