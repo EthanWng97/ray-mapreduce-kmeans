@@ -12,13 +12,19 @@ def _k_init(data_X, n_clusters, method="k-means++"):
     if(method=="k-means++"):
         print("trying k-means++ method to initialize k clusters")
         data = data_X.copy()
+        total = data.shape[0] # # samples
+        index_n = np.arange(total)
+        prob_n = np.empty(shape=(1, total),dtype=np.float32)
+
         center_1 = np.random.randint(0, data.shape[0])
         centroids[0] = data.loc[center_1]
 
         for i in range(1, n_clusters):
             index_row = 0
             index = 0
-            maxDist = 0
+            # index_max = 0
+            # maxDist = 0
+            totalDist = 0
             # calaulate proper point
             for row in data.values:
                 # calculate shortest distance (D(x)) for each point
@@ -28,12 +34,16 @@ def _k_init(data_X, n_clusters, method="k-means++"):
 
                     if distJ < minDistJ:
                         minDistJ = distJ
-                if minDistJ > maxDist:
-                    maxDist = minDistJ
-                    index = index_row
+                totalDist += minDistJ
+                prob_n[0][index_row] = minDistJ
+                # if minDistJ > maxDist:
+                #     maxDist = minDistJ
+                #     index_max = index_row
 
                 #operate index and maxDist
                 index_row += 1
+            prob_n = prob_n/totalDist
+            index = np.random.choice(index_n, p=prob_n[0].ravel())
             centroids[i] = data.loc[index]
     
     elif(method=="random"):
@@ -154,7 +164,7 @@ class KMeansMapper(object):
             #     self._k, self.centroids, self.item, i, self._epsilon, self._precision)
 
             """
-            method 2: classicial calculation method
+            method 2: classic calculation method
             """
 
             # for each k, calculate the nearest distance
