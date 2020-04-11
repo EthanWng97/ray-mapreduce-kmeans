@@ -6,19 +6,6 @@ def createDistMatrix(center):
     for i in range(n-1):
         rst[i][i+1] = np.math.sqrt(sum(np.power(center[i]-center[i+1], 2)))
 
-    #     j = i
-    #     while(j < n-1):
-    #         j += 1
-    #         rst[i][j] = np.math.sqrt(sum(np.power(center[i]-center[j], 2)))
-
-    # for i in range(n):
-    #     j = i
-    #     # print(i)
-    #     while(j > 0):
-    #       j -= 1
-    #       # print(j)
-    #       rst[i][j] = rst[j][i]
-
     return rst
 
 
@@ -35,7 +22,7 @@ def findClosest(k, centroids, item, i, distMatrix):
         if (distJI < bestDistance):
             bestDistance = distJI
             bestIndex = j
-        # print(distMatrix[j][j+1])
+        
         if (j<=k-2 and 2*distJI <= distMatrix[j][j+1]):  # optimize
             j += 1
 
