@@ -1,39 +1,165 @@
+import time
+from dataprocessor import DataProcessor
+import _k_means_ray
+import _k_means_elkan
+import _k_means_fast
+import _k_means_spark
+
 import pandas as pd
-import numpy as np
-from kmeans import KMeansClassifier
 import matplotlib.pyplot as plt
+import os
+import numpy as np
+import folium
+import pytz as tz  # better alternatives -> Apache arrow or pendulum
+from datetime import datetime
+from PIL import Image
+import urllib
+import urllib.request
+import wget
+import ray
+from scipy.spatial import Voronoi
+from numpy import array
 
-#加载数据集，DataFrame格式，最后将返回为一个matrix格式
+from sklearn.cluster import KMeans
+from sklearn import metrics
+from sklearn.metrics import pairwise_distances
+import joblib
+from ray.util.joblib import register_ray
 
 
-def loadDataset(infile):
-    df = pd.read_csv(infile, sep='\t', header=0, dtype=str, na_filter=False)
-    return np.array(df).astype(np.float)
+class Pipeline:
+    def __init__(self, working_dir, input_file, sample=None, cluster_k=20, iteration=10):
+        self.input_file = input_file
+        self.sample = sample
+        self.cluster_k = cluster_k
+        self.iteration = iteration
+        self.df = None
+        self.center = None
+        self.dataprocessor = DataProcessor(
+            working_dir, input_file)
+
+    def dataprocess(self):
+        # dataprocessor = DataProcessor(
+        #     working_dir, self.input_file)
+
+        df = self.dataprocessor.load_date()
+        df = self.dataprocessor.data_filter(df)
+        df = self.dataprocessor.data_process(df)
+        # df = df.sample(n=2000, replace=False).reset_index(drop=True)
+        # config: data 30000 cluster_k: 20
+        df = df[:self.sample]
+        df_kmeans = df.copy()
+        self.df = df_kmeans[['lat', 'lon']]
+
+    def cluster_ray(self, batch_num, init_method="k-means++", assign_method="elkan"):
+
+        # split data
+        batches = _k_means_ray.data_split(self.df, num=batch_num)
+
+        # init center
+        center = _k_means_ray._k_init(
+            self.df, self.cluster_k, method=init_method)
+        print(center)
+        n = center.shape[0]  # n center points
+        distMatrix = np.empty(shape=(n, n))
+        _k_means_fast.createDistMatrix(center, distMatrix)
+
+        # init ray
+        ray.init()
+        mappers = [_k_means_ray.KMeansMapper.remote(
+            mini_batch.values, k=self.cluster_k) for mini_batch in batches[0]]
+        reducers = [_k_means_ray.KMeansReducer.remote(
+            i, *mappers) for i in range(self.cluster_k)]
+        start = time.time()
+
+        for i in range(self.iteration):
+            # broadcast center point
+            for mapper in mappers:
+                mapper.broadcastCentroid.remote(center)
+                if(assign_method == "elkan"):
+                    mapper.broadcastDistMatrix.remote(distMatrix)
+
+            # map function
+            for mapper in mappers:
+                mapper.assign_cluster.remote(method=assign_method)
+
+            newCenter = _k_means_ray.CreateNewCluster(reducers)
+            changed, cost = _k_means_ray.ifUpdateCluster(
+                newCenter, center)  # update
+            if (not changed):
+                break
+            else:
+                center = newCenter
+                if(assign_method == "elkan"):
+                    _k_means_fast.createDistMatrix(center, distMatrix)
+                print(str(i) + " iteration, cost: " + str(cost))
+
+        # print(center)
+        end = time.time()
+        print(center)
+        self.center = center
+        print('execution time: ' + str(end-start) + 's, cost: ' + str(cost))
+
+    def cluster_sklearn(self, init_method="k-means++", assign_method="elkan", n_jobs=1):
+        start = time.time()
+
+        ml = KMeans(n_clusters=self.cluster_k,  init=init_method, verbose=1,
+                    n_jobs=n_jobs, max_iter=self.iteration, algorithm=assign_method)
+
+        ml.fit(self.df)
+        ray.init(use_pickle=True)
+        # register_ray()
+        # with joblib.parallel_backend('ray'):
+        #     ml.fit(self.df.sample(n=self.sample))
+        end = time.time()
+        center = ml.cluster_centers_
+        print(center)
+        self.center = center
+
+        print('execution time: ' + str(end-start) + 's')
+
+    def datapresent(self):
+        print(self.df.shape)
+        cluster = self.center
+        # cluster[:10]
+        #points = np.array([[c[1], c[0]] for c in clusters])
+        points = cluster
+
+        # compute Voronoi tesselation
+        vor = Voronoi(points)
+
+        # compute regions
+        regions, vertices = self.dataprocessor.voronoi_polygons_2d(vor)
+
+        # prepare figure
+        plt.style.use('seaborn-white')
+        fig = plt.figure()
+        fig.set_size_inches(20, 20)
+
+        #geomap
+        self.dataprocessor.geomap(self.df, self.df, 13, 2, 'k', 0.1)
+
+        # centroids
+        plt.plot(points[:, 0], points[:, 1], 'wo', markersize=10)
+
+        # colorize
+        for region in regions:
+            polygon = vertices[region]
+            plt.fill(*zip(*polygon), alpha=0.4)
+
+        plt.show()
 
 
-if __name__ == "__main__":
-    data_X = loadDataset(r"data/testSet.txt")
-    k = 3
-    clf = KMeansClassifier(k)
-    clf.fit(data_X)
-    cents = clf._centroids
-    labels = clf._labels
-    sse = clf._sse
-    colors = ['b', 'g', 'r', 'k', 'c', 'm',
-              'y', '#e24fff', '#524C90', '#845868']
-    for i in range(k):
-        index = np.nonzero(labels == i)[0]
-        x0 = data_X[index, 0]
-        x1 = data_X[index, 1]
-        y_i = i
-        for j in range(len(x0)):
-            plt.text(x0[j], x1[j], str(y_i), color=colors[i],
-                     fontdict={'weight': 'bold', 'size': 6})
-        plt.scatter(cents[i, 0], cents[i, 1], marker='x', color=colors[i],
-                    linewidths=7)
+if __name__ == '__main__':
+    working_dir = '/Users/wangyifan/Google Drive/checkin'
+    input_file = 'loc-gowalla_totalCheckins.txt'
+    pipeline = Pipeline(working_dir, input_file, sample=30000,
+                        cluster_k=20, iteration=10)
+    pipeline.dataprocess()
+    pipeline.cluster_ray(
+        batch_num=10, init_method="k-means++", assign_method="elkan")
+    # pipeline.cluster_sklearn(init_method="k-means++",
+    #                          assign_method="elkan", n_jobs=1)
 
-    plt.title("SSE={:.2f}".format(sse))
-    plt.axis([-7, 7, -7, 7])
-    outname = "./result/k_clusters" + str(k) + ".png"
-    plt.savefig(outname)
-    plt.show()
+    pipeline.datapresent()
+    
