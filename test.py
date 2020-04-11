@@ -17,6 +17,7 @@ from scipy.spatial import Voronoi
 from numpy import array
 import _k_means_elkan
 import _k_means_fast
+import _k_means_spark
 
 
 # data process
@@ -79,7 +80,7 @@ for i in range(iteration):
     # newCenter = ray.get(reducer.update_cluster.remote())
     # print(newCenter)
     # print(center)
-    changed, cost = raykmeans.ifUpdateCluster(newCenter, center)
+    changed, cost = raykmeans.ifUpdateCluster(newCenter, center) # update
     if (not changed):
         break
     else:
