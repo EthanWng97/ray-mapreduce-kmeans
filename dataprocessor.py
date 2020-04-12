@@ -48,7 +48,7 @@ class DataProcessor:
     
     def data_transfer(self, df, output_file):
         print("transferring data...")
-        output_name = './data/test.txt' + output_file
+        output_name = './data/' + output_file
         with open(output_name, 'w+') as f:
             for line in df.values:
                 f.write((str(line[0]) + '\t'+str(line[1]) + '\n'))

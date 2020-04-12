@@ -124,7 +124,7 @@ class Pipeline:
         print('execution time: ' + str(end-start) + 's')
 
     def cluster_spark(self, output_file='test.txt', init_method="random", epsilon=1e-4):
-        output_name = './data/test.txt' + output_file
+        output_name = './data/' + output_file
         self.dataprocessor.data_transfer(self.df, output_file)
         sc = SparkContext(appName="KmeansSpark")
         data = sc.textFile(output_name)
