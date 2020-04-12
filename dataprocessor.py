@@ -45,6 +45,13 @@ class DataProcessor:
         df = df[(df['lon'] > DataProcessor.lon_min) & (df['lon'] < DataProcessor.lon_max) &
                 (df['lat'] > DataProcessor.lat_min) & (df['lat'] < DataProcessor.lat_max)].reset_index(drop=True)
         return df
+    
+    def data_transfer(self, df, output_file):
+        print("transferring data...")
+        output_name = './data/test.txt' + output_file
+        with open(output_name, 'w+') as f:
+            for line in df.values:
+                f.write((str(line[0]) + '\t'+str(line[1]) + '\n'))
 
 
     def _get_map(self, x, y, z, size, filename):
@@ -187,9 +194,11 @@ if __name__ == '__main__':
     df = dataprocessor.load_date()
     df = dataprocessor.data_filter(df)
     df = dataprocessor.data_process(df)
+    df = df[['lat', 'lon']]
+    dataprocessor.data_transfer(df)
 
-    plt.style.use('seaborn-white')
-    fig = plt.figure()
-    fig.set_size_inches(20, 20)
-    dataprocessor.geomap(df[['lat', 'lon']], df=df)
-    plt.show()
+    # plt.style.use('seaborn-white')
+    # fig = plt.figure()
+    # fig.set_size_inches(20, 20)
+    # dataprocessor.geomap(df[['lat', 'lon']], df=df)
+    # plt.show()

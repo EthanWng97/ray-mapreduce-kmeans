@@ -26,6 +26,11 @@ from sklearn.metrics import pairwise_distances
 import joblib
 from ray.util.joblib import register_ray
 
+from pyspark import SparkContext
+from pyspark.sql import SQLContext
+from pyspark.sql import SparkSession
+import pyspark.mllib.clustering
+
 
 class Pipeline:
     def __init__(self, working_dir, input_file, sample=None, cluster_k=20, iteration=10):
@@ -118,8 +123,23 @@ class Pipeline:
 
         print('execution time: ' + str(end-start) + 's')
 
+    def cluster_spark(self, output_file='test.txt', init_method="random", epsilon=1e-4):
+        output_name = './data/test.txt' + output_file
+        self.dataprocessor.data_transfer(self.df, output_file)
+        sc = SparkContext(appName="KmeansSpark")
+        data = sc.textFile(output_name)
+        parsedData = data.map(lambda line: array(
+            [float(x) for x in line.split('\t')]))
+
+        # Build the model (cluster the data)
+        clusters = pyspark.mllib.clustering.KMeans.train(parsedData, k=self.cluster_k, maxIterations=self.iteration,
+                                                         initializationMode=init_method, epsilon=epsilon)
+        center = np.array(clusters.centers)
+        print(center)
+        self.center = center
+
     def datapresent(self):
-        print(self.df.shape)
+        # print(self.df.shape)
         cluster = self.center
         # cluster[:10]
         #points = np.array([[c[1], c[0]] for c in clusters])
@@ -156,10 +176,12 @@ if __name__ == '__main__':
     pipeline = Pipeline(working_dir, input_file, sample=30000,
                         cluster_k=20, iteration=10)
     pipeline.dataprocess()
-    pipeline.cluster_ray(
-        batch_num=10, init_method="k-means++", assign_method="elkan")
+    # pipeline.cluster_ray(
+    #     batch_num=10, init_method="k-means++", assign_method="full")
     # pipeline.cluster_sklearn(init_method="k-means++",
     #                          assign_method="elkan", n_jobs=1)
+    pipeline.cluster_spark(output_file='test.txt',
+                           init_method="random", epsilon=1e-4)
 
     pipeline.datapresent()
     
