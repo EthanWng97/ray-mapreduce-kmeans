@@ -55,9 +55,9 @@ class DataProcessor:
 
     def _get_map(self, x, y, z, size, filename):
         
-        static_map = "https://maps.googleapis.com/maps/api/staticmap?center=" +str(x) +","+ str(y) +"&zoom=" + str(z) + \
+        static_map = "https://maps.googleapis.com/maps/api/staticmap?center=" + str(x) + "," + str(y) + "&zoom=" + str(z) + \
             "&size=" + str(size) + "x" + str(size) +\
-            "&markers=color:red%7Clabel:C%7C"+ str(x) + "," + str(y) + "&maptype=roadmap&key=" + \
+            "&markers=color:red%7Clabel:C%7C" + str(x) + "," + str(y) + "&maptype=roadmap&key=" + \
             DataProcessor.key
         print(static_map)
         static_map = static_map.format(x, y, z, size)
