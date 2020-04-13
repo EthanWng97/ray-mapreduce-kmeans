@@ -13,7 +13,6 @@ import wget
 class DataProcessor:
     lat_min, lat_max, lon_min, lon_max = 59.1510, 59.6238, 17.5449, 18.6245
     key = "AIzaSyB0LOUHwF7jrKQT3R3rcqzSdeB4ARResuc"
-    static_map = "https://maps.googleapis.com/maps/api/staticmap?center=Stockholm&zoom={2}&size={3}x{3}&markers=color:red%7Clabel:C%7C{0},{1}&maptype=roadmap&key=" + key
     def __init__(self, datadir, filename):
         self.datadir = datadir
         self.filename = filename
@@ -55,13 +54,19 @@ class DataProcessor:
 
 
     def _get_map(self, x, y, z, size, filename):
-        static_map = DataProcessor.static_map.format(x, y, z, size)
+        
+        static_map = "https://maps.googleapis.com/maps/api/staticmap?center=" +str(x) +","+ str(y) +"&zoom=" + str(z) + \
+            "&size=" + str(size) + "x" + str(size) +\
+            "&markers=color:red%7Clabel:C%7C"+ str(x) + "," + str(y) + "&maptype=roadmap&key=" + \
+            DataProcessor.key
+        print(static_map)
+        static_map = static_map.format(x, y, z, size)
         static_map_filename, headers = urllib.request.urlretrieve(
             static_map, filename)
         return static_map_filename
 
 
-    def geomap(self, data, df, zoom=15, point_size=3, point_color='r', point_alpha=1):
+    def geomap(self, data, df, zoom=13, point_size=3, point_color='r', point_alpha=1):
         #corrections to match geo with static map
         z = zoom
         picsize = 1000
@@ -69,8 +74,8 @@ class DataProcessor:
         wy = 0.76*360*(picsize/256)/(2**z)
 
         #center of manhattan
-        y = 18.0649  # lon
-        x = 59.33258  # lat
+        y = 18.0649  # lon 18.0847
+        x = 59.33258  # lat 59.3874
 
         x_min, x_max = x-wx/2, x+wx/2
         y_min, y_max = y-wy/2, y+wy/2
