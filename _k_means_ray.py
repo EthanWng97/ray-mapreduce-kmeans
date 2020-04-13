@@ -112,12 +112,14 @@ def ifUpdateCluster(newCenter, oldCenter, epsilon=1e-4):
     return changed, cost
 
 def CreateNewCluster(reducers):
+    cost = 0
     new_cluster = np.array([[0., 0.]])
     for reducer in reducers:
         tmp = ray.get(reducer.update_cluster.remote())
         new_cluster = np.insert(
             new_cluster, 0, tmp, axis=0)
-    return np.delete(new_cluster, -1, axis=0)
+        cost += ray.get(reducer.read_cost.remote())
+    return np.delete(new_cluster, -1, axis=0), cost
 
 
 
@@ -163,6 +165,7 @@ class KMeansMapper(object):
                 """
                 minIndex, minDist = _k_means_spark.findClosest(
                     self._k, self.centroids, self.item, i, self._epsilon, self._precision)
+
             elif(method == "full"):
                 """
                 method 2: classic calculation method
@@ -176,6 +179,7 @@ class KMeansMapper(object):
                     if distJI < minDist:
                         minDist = distJI
                         minIndex = j
+            
             elif(method == "elkan"):
                 """
                 method 3: elkan method
@@ -187,8 +191,8 @@ class KMeansMapper(object):
                 sys.exit(2)
 
             # output: minIndex, minDist
-            if self._clusterAssment[i, 0] != minIndex or self._clusterAssment[i, 1] > minDist**2:
-                self._clusterAssment[i, :] = int(minIndex), minDist
+            # if self._clusterAssment[i, 0] != minIndex or self._clusterAssment[i, 1] > minDist:
+            self._clusterAssment[i, :] = int(minIndex), minDist
 
 
 @ray.remote
@@ -199,16 +203,22 @@ class KMeansReducer(object):
         self.centroids = None # recalculated center point
         self._clusterAssment = None
         self._clusterOutput = np.array([[0., 0.]])
+        self._cost = 0
 
     def read(self):
         return self._value
     
+    def read_cost(self):
+        return self._cost
+    
     def update_cluster(self):
+        self._cost = 0
         for mapper in self.kmeansmappers:
             self._clusterAssment = ray.get(mapper.read_cluster.remote())
             # get index number of each sample
             index_all = self._clusterAssment[:, 0]  
-            
+
+            self._cost += np.sum(self._clusterAssment[:, 1])
             # filter the sample according to the reducer number
             value = np.nonzero(index_all == self._value)
 

@@ -88,8 +88,8 @@ class Pipeline:
             for mapper in mappers:
                 mapper.assign_cluster.remote(method=assign_method)
 
-            newCenter = _k_means_ray.CreateNewCluster(reducers)
-            changed, cost = _k_means_ray.ifUpdateCluster(
+            newCenter, cost = _k_means_ray.CreateNewCluster(reducers)
+            changed, cost_1 = _k_means_ray.ifUpdateCluster(
                 newCenter, center)  # update
             if (not changed):
                 break
