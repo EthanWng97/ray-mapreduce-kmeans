@@ -79,6 +79,22 @@ def data_split(df, seed=None, num=3):
             data[0][i] = df.iloc[perm[data_end[0][i-1]:data_end[0][i]]]
     return tuple(data)
 
+
+def data_split_seq(df, num=3):
+    m = len(df.index)
+    data_end = np.zeros(shape=(1, num-1), dtype=np.int)
+    for i in range(num-1):
+        data_end[0][i] = int(((i+1)/num)*m)
+    data = np.zeros(shape=(1, num), dtype=object)
+    for i in range(num):
+        if (i == 0):
+            data[0][i] = df.iloc[:data_end[0][0]]
+        elif (i == num-1):
+            data[0][i] = df.iloc[data_end[0][i-1]:]
+        else:
+            data[0][i] = df.iloc[data_end[0][i-1]:data_end[0][i]]
+    return tuple(data)
+
 # def randCent(data_X, n_clusters):
 #     n = data_X.shape[1]  # dimension of feature
 #     centroids = np.empty((n_clusters, n))  # matrix of center point
