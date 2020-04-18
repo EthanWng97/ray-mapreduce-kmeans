@@ -66,10 +66,13 @@ def data_split(df, seed=None, num=3):
     np.random.seed(seed)
     perm = np.random.permutation(df.index)
     m = len(df.index)
+    data = np.zeros(shape=(1, num), dtype=object)
     data_end = np.zeros(shape=(1, num-1), dtype=np.int)
+    if (num == 1):
+        data[0][0] = df.iloc[:, :]
+        return tuple(data)
     for i in range(num-1):
         data_end[0][i] = int(((i+1)/num)*m)
-    data = np.zeros(shape=(1, num), dtype=object)
     for i in range(num):
         if (i == 0):
             data[0][i] = df.iloc[perm[:data_end[0][0]]]
@@ -83,9 +86,12 @@ def data_split(df, seed=None, num=3):
 def data_split_seq(array, num=3):
     m = array.shape[0]
     data_end = np.zeros(shape=(1, num-1), dtype=np.int)
+    data = np.zeros(shape=(1, num), dtype=object)
+    if (num == 1):
+        data[0][0] = array
+        return tuple(data)
     for i in range(num-1):
         data_end[0][i] = int(((i+1)/num)*m)
-    data = np.zeros(shape=(1, num), dtype=object)
     for i in range(num):
         if (i == 0):
             data[0][i] = array[:data_end[0][0]]
