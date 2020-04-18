@@ -169,11 +169,11 @@ class KMeansMapper(object):
 
     def assign_cluster(self, method="elkan"):
         # assign nearest center point to the sample
+        m = self.item.shape[0]  # number of sample
+        self._clusterAssment = np.zeros((m, 2))
 
         if (method == "mega_elkan"):  
-            m = self.item.shape[0]  # number of sample
-            self._clusterAssment = np.zeros((m, 2))
-            items = data_split_seq(self.item, num =5)
+            items = data_split_seq(self.item, num =3)
             result_ids = []
             [result_ids.append(_k_means_elkan.mega_findClosest.remote(
                 self._k, self.centroids, self._distMatrix, item))
