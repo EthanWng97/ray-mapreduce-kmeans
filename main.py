@@ -81,7 +81,7 @@ class Pipeline:
             # broadcast center point
             for mapper in mappers:
                 mapper.broadcastCentroid.remote(center)
-                if(assign_method == "elkan"):
+                if(assign_method == "elkan" or assign_method == "mega_elkan"):
                     mapper.broadcastDistMatrix.remote(distMatrix)
 
             # map function
@@ -95,7 +95,7 @@ class Pipeline:
                 break
             else:
                 center = newCenter
-                if(assign_method == "elkan"):
+                if(assign_method == "elkan" or assign_method == "mega_elkan"):
                     _k_means_fast.createDistMatrix(center, distMatrix)
                 print(str(i) + " iteration, cost: " + str(cost))
 
@@ -124,6 +124,7 @@ class Pipeline:
         print('execution time: ' + str(end-start) + 's')
 
     def cluster_spark(self, output_file='test.txt', init_method="random", epsilon=1e-4):
+        start = time.time()
         output_name = './data/' + output_file
         self.dataprocessor.data_transfer(self.df, output_file)
         sc = SparkContext(appName="KmeansSpark")
@@ -134,9 +135,11 @@ class Pipeline:
         # Build the model (cluster the data)
         clusters = pyspark.mllib.clustering.KMeans.train(parsedData, k=self.cluster_k, maxIterations=self.iteration,
                                                          initializationMode=init_method, epsilon=epsilon)
+        end = time.time()
         center = np.array(clusters.centers)
         print(center)
         self.center = center
+        print('execution time: ' + str(end-start) + 's')
 
     def datapresent(self):
         # print(self.df.shape)
@@ -173,15 +176,15 @@ class Pipeline:
 if __name__ == '__main__':
     working_dir = '/Users/wangyifan/Google Drive/checkin'
     input_file = 'loc-gowalla_totalCheckins.txt'
-    pipeline = Pipeline(working_dir, input_file, sample=30000,
+    pipeline = Pipeline(working_dir, input_file, sample=250000,
                         cluster_k=20, iteration=10)
     pipeline.dataprocess()
     # pipeline.cluster_ray(
-    #     batch_num=10, init_method="k-means++", assign_method="full")
+    #     batch_num=5, init_method="random", assign_method="mega_elkan")
     # pipeline.cluster_sklearn(init_method="k-means++",
-    #                          assign_method="elkan", n_jobs=1)
+    #                          assign_method="full", n_jobs=1)
     pipeline.cluster_spark(output_file='test.txt',
                            init_method="random", epsilon=1e-4)
 
-    pipeline.datapresent()
+    # pipeline.datapresent()
     
