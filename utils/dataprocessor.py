@@ -2,13 +2,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import numpy as np
-import folium
 import pytz as tz  # better alternatives -> Apache arrow or pendulum
 from datetime import datetime
 from PIL import Image
 import urllib
 import urllib.request
-import wget
+# import wget
 
 class DataProcessor:
     lat_min, lat_max, lon_min, lon_max = 59.1510, 59.6238, 17.5449, 18.6245

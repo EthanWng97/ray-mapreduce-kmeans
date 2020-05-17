@@ -9,20 +9,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import numpy as np
-import folium
-import pytz as tz  # better alternatives -> Apache arrow or pendulum
-from datetime import datetime
-from PIL import Image
-import urllib
-import urllib.request
-import wget
 import ray
 from scipy.spatial import Voronoi
 from numpy import array
 
 from sklearn.cluster import KMeans
-from sklearn import metrics
-from sklearn.metrics import pairwise_distances
+# from sklearn import metrics
+# from sklearn.metrics import pairwise_distances
 import joblib
 from ray.util.joblib import register_ray
 

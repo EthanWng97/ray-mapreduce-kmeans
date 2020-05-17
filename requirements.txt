@@ -1,0 +1,12 @@
+###### Requirements without Version Specifiers ######`
+pandas
+matplotlib
+numpy
+ray
+scipy
+sklearn
+joblib
+pyspark
+pytz
+
+###### Requirements with Version Specifiers ######`
