@@ -1,9 +1,9 @@
 import time
-from dataprocessor import DataProcessor
-import _k_means_ray
-import _k_means_elkan
-import _k_means_fast
-import _k_means_spark
+from utils.dataprocessor import DataProcessor
+from utils import _k_means_ray
+from utils import _k_means_elkan
+from utils import _k_means_fast
+from utils import _k_means_spark
 
 import pandas as pd
 import matplotlib.pyplot as plt
