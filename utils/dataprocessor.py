@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 import pytz as tz  # better alternatives -> Apache arrow or pendulum
+from scipy.spatial import Voronoi
 from datetime import datetime
 from PIL import Image
 import urllib
@@ -16,13 +17,20 @@ class DataProcessor:
         self.datadir = datadir
         self.filename = filename
     
+    def processData(self, sample):
+        df = self._loadDate()
+        df = self._filterData(df)
+        # df = self._parseData(df)
+        df = df[:sample]
+        df_kmeans = df.copy()
+        return df_kmeans[['lat', 'lon']]
 
-    def _parse_datetime(self, s):
+    def _parseDatetime(self, s):
         tzone = tz.timezone("Europe/Stockholm")
         utc = datetime.strptime(s, '%Y-%m-%dT%H:%M:%SZ')
         return tz.utc.localize(utc).astimezone(tzone)
 
-    def load_date(self):
+    def _loadDate(self):
         print("loading data...")
         filename = os.path.join(
             self.datadir, self.filename)
@@ -30,22 +38,22 @@ class DataProcessor:
         df.columns = ['uid', 'timestamp', 'lat', 'lon', 'venue_id']
         return df
     
-    def data_process(self, df):
-        print("processing data...")
-        df['ts'] = df['timestamp'].apply(lambda x: self._parse_datetime(x))
+    def _parseData(self, df):
+        print("parsing data...")
+        df['ts'] = df['timestamp'].apply(lambda x: self._parseDatetime(x))
         df = df.drop('timestamp', axis=1, errors='ignore')
         df['date'] = df['ts'].astype(object).apply(lambda x: x.date())
         df['time'] = df['ts'].astype(object).apply(lambda x: x.time())
         return df
 
-    def data_filter(self, df):
+    def _filterData(self, df):
         print("filtering data...")
         df = df[(df['lon'] > DataProcessor.lon_min) & (df['lon'] < DataProcessor.lon_max) &
                 (df['lat'] > DataProcessor.lat_min) & (df['lat'] < DataProcessor.lat_max)].reset_index(drop=True)
         return df
     
-    def data_transfer(self, df, output_file):
-        print("transferring data...")
+    def saveData(self, df, output_file):
+        print("saving data...")
         output_name = './data/' + output_file
         with open(output_name, 'w+') as f:
             for line in df.values:
@@ -161,6 +169,7 @@ class DataProcessor:
                 if v2 < 0:
                     v1, v2 = v2, v1
                 if v1 >= 0:
+
                     # finite ridge: already in the region
                     continue
 
@@ -188,18 +197,44 @@ class DataProcessor:
 
         return new_regions, np.asarray(new_vertices)
 
+    def presentData(self, center, df):
+        cluster = center
+        points = center
 
+        # compute Voronoi tesselation
+        vor = Voronoi(points)
+
+        # compute regions
+        regions, vertices = self.voronoi_polygons_2d(vor)
+
+        # prepare figure
+        plt.style.use('seaborn-white')
+        fig = plt.figure()
+        fig.set_size_inches(20, 20)
+
+        #geomap
+        self.geomap(df, df, 13, 2, 'k', 0.1)
+
+        # centroids
+        plt.plot(points[:, 0], points[:, 1], 'wo', markersize=10)
+
+        # colorize
+        for region in regions:
+            polygon = vertices[region]
+            plt.fill(*zip(*polygon), alpha=0.4)
+
+        plt.show()
 
 if __name__ == '__main__':
     dataprocessor = DataProcessor(
         '/Users/wangyifan/Google Drive/checkin', 'loc-gowalla_totalCheckins.txt')
     #indexer.build_index('../../reuters/training')
     # start = time.time()
-    df = dataprocessor.load_date()
-    df = dataprocessor.data_filter(df)
-    df = dataprocessor.data_process(df)
+    df = dataprocessor._loadDate()
+    df = dataprocessor._filterData(df)
+    df = dataprocessor._parseData(df)
     df = df[['lat', 'lon']]
-    dataprocessor.data_transfer(df)
+    dataprocessor.saveData(df)
 
     # plt.style.use('seaborn-white')
     # fig = plt.figure()
