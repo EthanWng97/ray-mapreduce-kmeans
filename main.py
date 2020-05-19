@@ -19,6 +19,11 @@ from ray.util.joblib import register_ray
 from pyspark import SparkContext
 import pyspark.mllib.clustering
 
+# d:f:s:k:n:m:t:
+def usage():
+    print("usage: " +
+          sys.argv[0] + " -d working_dir -f input-file -s number-of-sample -k number-of-clusters -n number-of-iteration -m number-of-mappers -t number-of-tasks")
+
 
 class Pipeline:
     def __init__(self, working_dir, input_file, sample=None, cluster_k=20, iteration=10):
@@ -119,38 +124,56 @@ class Pipeline:
         self.center = center
         print('execution time: ' + str(end-start) + 's')
 
-if __name__ == '__main__':
-    working_dir = '/Users/wangyifan/Google Drive/checkin'
-    input_file = 'loc-gowalla_totalCheckins.txt'
-    pipeline = Pipeline(working_dir, input_file, sample=50000,
-                        cluster_k=20, iteration=0)
-    pipeline.cluster_ray(
-        batch_num=5, init_method="random", assign_method="mega_elkan", task_num=2)
+# if __name__ == '__main__':
+#     working_dir = '/Users/wangyifan/Google Drive/checkin'
+#     input_file = 'loc-gowalla_totalCheckins.txt'
+#     pipeline = Pipeline(working_dir, input_file, sample=50000,
+#                         cluster_k=20, iteration=0)
+#     pipeline.cluster_ray(
+#         batch_num=5, init_method="random", assign_method="mega_elkan", task_num=2)
     # pipeline.cluster_sklearn(init_method="k-means++",
     #                          assign_method="full", n_jobs=1)
     # pipeline.cluster_spark(output_file='test.txt',
     #                        init_method="random", epsilon=1e-4)
 
-    pipeline.dataprocessor.presentData(pipeline.center, pipeline.df)
+    # pipeline.dataprocessor.presentData(pipeline.center, pipeline.df)
 
-# try:
-#     opts, args = getopt.getopt(sys.argv[1:], 'c:f:q:o:')
-# except getopt.GetoptError:
-#     usage()
-#     sys.exit(2)
+working_dir = input_file = None
+number_of_sample = 500000
+number_of_clusters = 20
+number_of_iteration = 10
+number_of_mappers = 5
+number_of_tasks = 2
 
-# for o, a in opts:
-#     if o == '-d':
-#         dictionary_file = a
-#     elif o == '-p':
-#         postings_file = a
-#     elif o == '-q':
-#         file_of_queries = a
-#     elif o == '-o':
-#         file_of_output = a
-#     else:
-#         assert False, "unhandled option"
+try:
+    opts, args = getopt.getopt(sys.argv[1:], 'd:f:s:k:n:m:t:')
+except getopt.GetoptError:
+    usage()
+    sys.exit(2)
 
-# if dictionary_file == None or postings_file == None or file_of_queries == None or file_of_output == None:
-#     usage()
-#     sys.exit(2)
+for o, a in opts:
+    if o == '-d':
+        working_dir = a
+    elif o == '-f':
+        input_file = a
+    elif o == '-s':
+        number_of_sample = a
+    elif o == '-k':
+        number_of_clusters = a
+    elif o == '-n':
+        number_of_iteration = a
+    elif o == '-m':
+        number_of_mappers = a
+    elif o == '-t':
+        number_of_tasks = a
+    else:
+        assert False, "unhandled option"
+
+if working_dir == None or input_file == None:
+    usage()
+    sys.exit(2)
+
+pipeline = Pipeline(working_dir, input_file, sample=number_of_sample,
+                    cluster_k=number_of_clusters, iteration=number_of_iteration)
+pipeline.cluster_ray(
+    batch_num=number_of_mappers, init_method="random", assign_method="mega_elkan", task_num=number_of_tasks)
