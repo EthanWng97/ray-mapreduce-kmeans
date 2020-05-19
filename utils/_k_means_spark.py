@@ -44,7 +44,7 @@ def findClosest(k, centroids, item, i, EPSILON, precision):
     return bestIndex, bestDistance
 
 
-def ifUpdateCluster(newCenter, oldCenter, epsilon=1e-4):
+def isUpdateCluster(newCenter, oldCenter, epsilon=1e-4):
     changed = False
     if (newCenter.shape[0] != oldCenter.shape[0]):
         print("run failed: no matched dimension about newCenter and oldCenter list!")

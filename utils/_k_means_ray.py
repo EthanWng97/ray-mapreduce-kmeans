@@ -6,7 +6,7 @@ from utils import _k_means_fast
 from utils import _k_means_spark
 
 
-def _k_init(data_X, n_clusters, method="k-means++"):
+def _initK(data_X, n_clusters, method="k-means++"):
     n = data_X.shape[1]  # dimension of feature
     centroids = np.empty((n_clusters, n))  # matrix of center point
     if(method=="k-means++"):
@@ -62,7 +62,7 @@ def _k_init(data_X, n_clusters, method="k-means++"):
 
 
 
-def data_split(df, seed=None, num=3):
+def splitData(df, seed=None, num=3):
     np.random.seed(seed)
     perm = np.random.permutation(df.index)
     m = len(df.index)
@@ -83,7 +83,7 @@ def data_split(df, seed=None, num=3):
     return tuple(data)
 
 
-def data_split_seq(array, num=3):
+def _splitDataSeq(array, num=3):
     m = array.shape[0]
     data_end = np.zeros(shape=(1, num-1), dtype=np.int)
     data = np.zeros(shape=(1, num), dtype=object)
@@ -101,24 +101,13 @@ def data_split_seq(array, num=3):
             data[0][i] = array[data_end[0][i-1]:data_end[0][i]]
     return tuple(data)
 
-# def randCent(data_X, n_clusters):
-#     n = data_X.shape[1]  # dimension of feature
-#     centroids = np.empty((n_clusters, n))  # matrix of center point
-#     for j in range(n):
-#         minJ = min(data_X.iloc[:, j])
-#         rangeJ = float(max(data_X.iloc[:, j] - minJ))
-
-#         centroids[:, j] = (
-#             minJ + rangeJ * np.random.rand(n_clusters, 1)).flatten()
-#     return centroids
-
 def calEDist(arrA, arrB):
     return np.math.sqrt(sum(np.power(arrA-arrB, 2)))
 
-def CalculateNorm(point):
+def _calculateNorm(point):
     return np.linalg.norm(point)
 
-def ifUpdateCluster(newCenter, oldCenter, epsilon=1e-4):
+def isUpdateCluster(newCenter, oldCenter, epsilon=1e-4):
     changed = False
     if (newCenter.shape[0] != oldCenter.shape[0]):
         print("run failed: no matched dimension about newCenter and oldCenter list!")
@@ -126,14 +115,14 @@ def ifUpdateCluster(newCenter, oldCenter, epsilon=1e-4):
     n = newCenter.shape[0]
     cost = 0
     for i in range(n):
-        diff = _k_means_spark.fastSquaredDistance(newCenter[i], CalculateNorm(
-            newCenter[i]), oldCenter[i], CalculateNorm(oldCenter[i]))
+        diff = _k_means_spark.fastSquaredDistance(newCenter[i], _calculateNorm(
+            newCenter[i]), oldCenter[i], _calculateNorm(oldCenter[i]))
         if diff > np.square(epsilon):
             changed = True
         cost += diff
     return changed, cost
 
-def CreateNewCluster(reducers):
+def createNewCluster(reducers):
     cost = 0
     new_cluster = np.array([[0., 0.]])
     for reducer in reducers:
@@ -167,21 +156,21 @@ class KMeansMapper(object):
     def _calEDist(self, arrA, arrB):
         return np.math.sqrt(sum(np.power(arrA-arrB, 2)))
 
-    def read_cluster(self):
+    def readCluster(self):
         return self._clusterAssment
 
-    def read_item(self):
+    def readItem(self):
         return self.item
 
-    def assign_cluster(self, method="elkan"):
+    def assignCluster(self, method="elkan", task_num=2):
         # assign nearest center point to the sample
         m = self.item.shape[0]  # number of sample
         self._clusterAssment = np.zeros((m, 2))
 
         if (method == "mega_elkan"):  
-            items = data_split_seq(self.item, num =3)
+            items = _splitDataSeq(self.item, num=task_num)
             result_ids = []
-            [result_ids.append(_k_means_elkan.mega_findClosest.remote(
+            [result_ids.append(_k_means_elkan.megaFindClosest.remote(
                 self._k, self.centroids, self._distMatrix, item))
             for item in items[0]]
 
@@ -253,7 +242,7 @@ class KMeansReducer(object):
     def update_cluster(self):
         self._cost = 0
         for mapper in self.kmeansmappers:
-            self._clusterAssment = ray.get(mapper.read_cluster.remote())
+            self._clusterAssment = ray.get(mapper.readCluster.remote())
             # get index number of each sample
             index_all = self._clusterAssment[:, 0]  
 
@@ -261,9 +250,9 @@ class KMeansReducer(object):
             # filter the sample according to the reducer number
             value = np.nonzero(index_all == self._value)
 
-            # ray.get(mapper.read_item.remote)
+            # ray.get(mapper.readItem.remote)
             # get the info of sample according to the reducer number
-            ptsInClust = ray.get(mapper.read_item.remote())[
+            ptsInClust = ray.get(mapper.readItem.remote())[
                 value[0]]
             
             # accumulate the result
