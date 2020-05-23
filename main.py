@@ -22,7 +22,7 @@ import pyspark.mllib.clustering
 # d:f:s:k:n:m:t:
 def usage():
     print("usage: " +
-          sys.argv[0] + " -d working_dir -f input-file -s number-of-sample -k number-of-clusters -n number-of-iteration -m number-of-mappers -t number-of-tasks")
+          sys.argv[0] + " -d working-dir -f input-file -s number-of-sample -k number-of-clusters -n number-of-iteration -m number-of-mappers -t number-of-tasks")
 
 
 class Pipeline:
@@ -157,15 +157,15 @@ for o, a in opts:
     elif o == '-f':
         input_file = a
     elif o == '-s':
-        number_of_sample = a
+        number_of_sample = int(a)
     elif o == '-k':
-        number_of_clusters = a
+        number_of_clusters = int(a)
     elif o == '-n':
-        number_of_iteration = a
+        number_of_iteration = int(a)
     elif o == '-m':
-        number_of_mappers = a
+        number_of_mappers = int(a)
     elif o == '-t':
-        number_of_tasks = a
+        number_of_tasks = int(a)
     else:
         assert False, "unhandled option"
 
