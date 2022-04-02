@@ -1,5 +1,5 @@
 # ray-mapreduce-kmeans
-![ray-mapreduce](https://cdn.jsdelivr.net/gh/NavePnow/blog_photo@private//mapreduce-ray.png)
+![ray-mapreduce](https://miro.medium.com/max/1400/1*2omU7XHeJUWgZ3kleRJ-OA.png)
 
 ## Full document
 > [Medium](https://medium.com/navepnow/ray-supported-high-performance-distributed-clustering-algorithm-46389d422802)
